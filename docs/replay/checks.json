@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "Unauthenticated archive access denied",
+    "Real Bybit Futures archive loaded: 864 closed candles",
+    "Chart selection hides future; exact single-step; 5x playback; immediate pause",
+    "Long/Short, entry commission, mark-to-market, close, journal and CSV",
+    "SMA, EMA, Bollinger, VWAP, RSI, MACD toggle and pane switching",
+    "Five drawing tools, undo/clear, mouse zoom/pan and return to replay",
+    "UTC date start, account/drawing reset, keyboard step",
+    "Responsive 1024/768/390px, no document overflow; controls accessible",
+    "Exit restores full archive; existing strategy tester remains accessible"
+  ],
+  "errors": []
+}

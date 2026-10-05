@@ -1,0 +1,11 @@
+.git
+*.log
+news-bot
+v2_pipeline.go
+news_ai.go
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx

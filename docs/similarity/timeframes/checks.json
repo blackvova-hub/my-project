@@ -1,0 +1,54 @@
+{
+  "checks": [
+    "four intervals update all six real charts with zero extra network requests",
+    "dragging, wheel zoom and reset work independently; neighbouring chart images unchanged",
+    "chosen timeframe survives page reload",
+    "mobile layout without overflow and keyboard interval selection",
+    "horizontal touch gesture moves the selected chart on mobile",
+    "failed candle load recovers using retry without resubmitting search"
+  ],
+  "counts": {
+    "5м": [
+      2304,
+      2304,
+      2304,
+      2304,
+      2304,
+      2304
+    ],
+    "15м": [
+      768,
+      768,
+      768,
+      768,
+      768,
+      768
+    ],
+    "1ч": [
+      192,
+      192,
+      192,
+      192,
+      192,
+      192
+    ],
+    "4ч": [
+      48,
+      48,
+      48,
+      48,
+      48,
+      48
+    ]
+  },
+  "errors": [],
+  "newSearches": 0,
+  "rawCandles": [
+    2304,
+    2304,
+    2304,
+    2304,
+    2304,
+    2304
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "bybit/linear: actual 1m archive and exact 5m/15m/1h/4h aggregation",
+    "bybit/spot: actual 1m archive and exact 5m/15m/1h/4h aggregation",
+    "binance/linear: actual 1m archive and exact 5m/15m/1h/4h aggregation",
+    "binance/spot: actual 1m archive and exact 5m/15m/1h/4h aggregation",
+    "Native concept viewport; real animation at 20x; pause; indicators survive start change",
+    "503 error shown; prior chart, drawings, indicators and cursor preserved",
+    "Empty archive is explicit, no fake data or stale previous chart",
+    "Oversized minute range rejected before fetching"
+  ],
+  "errors": []
+}

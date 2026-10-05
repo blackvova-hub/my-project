@@ -1,0 +1,24 @@
+# Isolated development/test infrastructure; never attaches to production volumes.
+name: shortlong-backtest-test
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: backtest_test
+      POSTGRES_PASSWORD: backtest-test-only
+    ports: ["127.0.0.1:25432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d backtest_test"]
+      interval: 2s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    ports: ["127.0.0.1:26379:6379"]
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8-alpine
+    environment:
+      CLICKHOUSE_DB: shortlong_backtest
+      CLICKHOUSE_USER: backtest
+      CLICKHOUSE_PASSWORD: backtest-test-only
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports: ["127.0.0.1:28123:8123"]

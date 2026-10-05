@@ -1,0 +1,1341 @@
+Что мы строим
+
+Мы делаем сервис аналитики для трейдера, который подключает Bybit / Binance через read-only API, после чего сервис автоматически собирает:
+
+сделки;
+fills;
+комиссии;
+funding;
+депозиты;
+выводы;
+переводы;
+realized/unrealized PnL;
+позиции;
+историю баланса.
+
+А затем превращает это не в обычный portfolio tracker, а в ответ на главный вопрос:
+
+“Почему у меня сейчас именно столько денег и что конкретно делает меня прибыльным или убыточным?”
+
+То есть продукт состоит из 7 основных разделов.
+
+И я бы именно их реализовывал.
+
+1. OVERVIEW
+
+Это первый экран после подключения биржи.
+
+Он должен дать ощущение:
+
+“Блять, он реально понял весь мой аккаунт.”
+
+Референс по плотности информации:
+
+TradeZella сейчас строит dashboard вокруг Net P&L, win rate, profit factor, account balance, календаря и кастомных widgets. Это хороший UX-референс, но нам нужен более crypto-native финансовый слой.
+
+Верхняя строка
+
+Я бы сделал 5 карточек:
+
+PORTFOLIO VALUE
+$126,420
++4.81% / 30d
+
+
+TRUE NET PNL
++$18,842
++17.4%
+
+
+TRADING PNL
++$24,122
+
+
+TOTAL COSTS
+-$5,280
+
+
+CURRENT DRAWDOWN
+-6.8%
+Почему именно эти
+
+Они сразу отвечают:
+
+сколько у меня денег;
+сколько я реально заработал;
+сколько заработано именно трейдингом;
+сколько съела торговля;
+насколько я сейчас ниже максимума.
+Главный график
+
+Не обычный один equity line.
+
+Три линии:
+
+Portfolio Value
+Net Invested
+BTC Benchmark
+
+Пример:
+
+$150k ┤                           ╭──── Portfolio
+      │                     ╭─────╯
+$125k ┤              ╭──────╯
+      │       ╭──────╯
+$100k ┼───────╯────────────────── Net invested
+      │
+ $75k ┤ · · · · · · · · · · · BTC benchmark
+      └────────────────────────────
+       Jan   Mar   May   Jul   Sep
+
+Пользователь сразу видит:
+
+капитал растёт из-за прибыли или из-за того, что я постоянно заношу новые деньги?
+
+Это очень важное различие.
+
+Под графиком — Money Breakdown
+
+Вот эта штука должна стать одной из главных фишек.
+
+ACCOUNT CHANGE
+
+Starting equity                  $92,000
+
+Trading profit                 + $25,840
+Earn / rewards                +     640
+Funding received              +     420
+
+Trading fees                  -   2,620
+Funding paid                  -   2,110
+Estimated slippage            -     940
+Borrow interest               -     310
+
+External deposits             +  15,000
+Withdrawals                   -   1,500
+
+──────────────────────────────────────
+Current equity                 $126,420
+
+Любую строку можно нажать.
+
+Например:
+
+Trading fees −$2,620
+
+↓ открывается:
+
+BTCUSDT      $1,214
+ETHUSDT        $621
+SOLUSDT        $283
+XRPUSDT        $122
+Others         $380
+
+↓ клик BTC
+
+↓ конкретные сделки.
+
+То есть пользователь может пройти:
+
+Account → Category → Symbol → Trade → Execution.
+
+Это очень сильный UX.
+
+2. PERFORMANCE
+
+Здесь отвечаем:
+
+“Насколько я реально хорошо торгую?”
+
+Не надо делать 60 бессмысленных KPI.
+
+Нам нужны примерно 15 сильных.
+
+Основные
+Net PnL
+Gross PnL
+
+Return %
+
+Win Rate
+
+Profit Factor
+
+Average Win
+Average Loss
+
+Payoff Ratio
+
+Expectancy
+
+Best Trade
+Worst Trade
+
+Best Day
+Worst Day
+
+Max Drawdown
+
+Current Drawdown
+
+Recovery Time
+
+TradeZella сейчас тоже использует Net P&L, win rate, Profit Factor, average win/loss и drawdown как ключевые performance metrics.
+
+Performance chart
+
+Переключатель:
+
+[ Equity ] [ PnL ] [ Return ] [ Drawdown ]
+
+И сверху:
+
+7D
+30D
+90D
+YTD
+1Y
+ALL
+Breakdown
+
+Вот это обязательно.
+
+PnL by symbol
+BTC        +$12,481
+ETH         +$5,121
+SOL         -$2,118
+DOGE          -$811
+XRP           +$420
+PnL by direction
+LONG
++$14,810
+
+SHORT
++$4,032
+PnL by exchange
+BYBIT
++$12,811
+
+BINANCE
++$6,031
+PnL by day of week
+MON     +$2,410
+TUE     +$4,240
+WED     -$1,810
+THU     +$5,120
+FRI     +$3,820
+SAT       +$511
+SUN     -$1,449
+Calendar
+
+Я бы обязательно реализовал PnL calendar.
+
+TradeZella делает performance calendar одной из центральных функций dashboard.
+
+Выглядит примерно:
+
+SEPTEMBER
+
+MON      TUE      WED      THU      FRI
+
++$821    +$120    -$440    +$1,100  +$621
+
++$180    -$920    +$841    +$240    +$90
+
++$2,410  +$311    -$82     +$918    ...
+
+Цвет клетки зависит от результата.
+
+Но внутри клетки:
+
++$821
+8 trades
+-$91 fees
+
+Hover:
+
+Gross PnL        +$970
+Fees              -$84
+Funding           -$65
+
+Net PnL          +$821
+
+Win rate           62%
+Profit factor     1.84
+3. TRADES
+
+Это одна из самых важных частей.
+
+Биржа даёт executions.
+
+Мы должны превращать executions в человеческую сделку.
+
+Например биржа прислала:
+
+BUY 0.10 BTC
+BUY 0.15 BTC
+BUY 0.05 BTC
+
+SELL 0.05 BTC
+SELL 0.20 BTC
+SELL 0.05 BTC
+
+У нас пользователь видит одну сделку:
+
+BTCUSDT
+
+LONG
+
+Entry
+$61,822
+
+Exit
+$63,411
+
+Position
+$18,932
+
+Gross PnL
++$482
+
+Fees
+-$21
+
+Funding
+-$9
+
+Net PnL
++$452
+
+Duration
+4h 28m
+
+Leverage
+7.4x
+Список trades
+
+Таблица:
+
+Symbol
+Side
+Entry
+Exit
+Size
+Leverage
+
+Gross PnL
+Fees
+Funding
+Net PnL
+
+Duration
+Date
+
+Фильтры:
+
+Exchange
+Symbol
+Long / Short
+Profit / Loss
+
+Leverage
+Trade duration
+
+Date
+
+Tag
+Strategy
+
+TradeZella построен примерно по аналогичной логике: dashboard → day/week → individual trade с executions и chart.
+
+Individual Trade page
+
+Вот этот экран нужно запарить особенно сильно.
+
+TradeZella сейчас показывает основной trade chart, entry/exit markers, отдельный execution history и Running P/L. Это хороший референс структуры.
+
+В нашем случае сверху:
+
+BTCUSDT    LONG
+
++$841.27
++2.82R
+
+Sep 12 • 13:21
+→
+Sep 12 • 18:04
+Большой свечной график
+
+Прям TradingView-style.
+
+На нём:
+
+● Entry
+
+▲ Added position
+
+▼ Partial close
+
+● Final exit
+
+Отдельными линиями:
+
+Average Entry
+Stop Loss
+Take Profit
+Liquidation Price
+Под ним Trade Anatomy
+Entry                  $61,882
+Average Exit           $64,411
+
+Position size          $31,212
+
+Gross PnL                +$941
+Fees                       -$48
+Funding                    -$21
+Net PnL                   +$872
+
+И:
+
+MFE
++$1,640
+
+MAE
+-$411
+
+Exit efficiency
+53%
+
+Holding time
+4h 43m
+MFE / MAE
+
+Это обязательно.
+
+Не откладывать.
+
+MFE
+
+Maximum Favorable Excursion.
+
+То есть:
+
+сколько максимум сделка была в плюсе.
+
+MAE
+
+Maximum Adverse Excursion.
+
+насколько максимум сделка уходила против пользователя.
+
+Пример:
+
+Maximum profit during trade
+
++$1,640
+
+Actual exit profit
+
++$872
+
+Отсюда:
+
+Profit captured:
+53.2%
+
+И человек такой:
+
+так, оказывается я половину прибыли постоянно отдаю обратно рынку.
+
+Это реально полезный insight.
+
+TradeZella отдельно показывает MAE/MFE для оптимизации выхода; похожая trade-level аналитика есть и у профессиональных journals.
+
+4. EDGE
+
+Вот этот раздел будет отличать нас от обычного tracker.
+
+Название:
+
+Edge
+
+Подзаголовок:
+
+Find what actually makes you money.
+
+Тут автоматически анализируем торговлю по измерениям.
+
+Symbol
+        trades      PnL       PF
+
+BTC      182      +$8,242    1.72
+ETH      124      +$4,811    1.44
+SOL       81      -$2,121    0.72
+Long vs Short
+           LONG          SHORT
+
+Trades      321            128
+
+PnL       +$14,820       -$2,812
+
+Win rate    62%            41%
+
+PF          1.71           0.78
+Hour of day
+00 → 04      +$820
+04 → 08      +$1,882
+08 → 12      +$4,211
+12 → 16      -$3,820
+16 → 20      +$6,182
+20 → 24      -$911
+
+Это можно сделать heatmap.
+
+Day × Hour
+
+Очень крутой экран:
+
+             MON TUE WED THU FRI SAT SUN
+
+00-04         ░   +   +   ░   -   ░   ░
+04-08         +   +   ++  +   +   ░   -
+08-12         ++  +   ++  +++ +   -   -
+12-16         --  -   --  -   -   ░   -
+16-20         ++  +++ +   ++  +   +   ░
+20-24         -   -   ░   +   -   ░   ░
+
+Кликаешь на любую клетку → все сделки.
+
+Leverage analysis
+1–3x
++$2,840
+PF 1.82
+
+3–5x
++$5,610
+PF 1.54
+
+5–10x
++$3,221
+PF 1.21
+
+10x+
+-$4,881
+PF 0.61
+
+Очень понятный вывод.
+
+Duration
+< 5 min           -$2,110
+
+5–30 min          +$821
+
+30m–2h            +$4,182
+
+2–8h              +$7,481
+
+8h+               -$1,921
+Cross Analysis
+
+Это нужно обязательно, но можно второй фазой.
+
+Пользователь выбирает:
+
+X:
+Leverage
+
+Y:
+Profit Factor
+
+Split:
+Long / Short
+
+И строит анализ.
+
+TradeZella сейчас тоже делает cross-analysis по profitability, risk, time, activity и tags — это хороший референс самой механики.
+
+5. COSTS
+
+Я считаю, это должна быть одна из главных фишек нашего продукта.
+
+Не спрятать Fees где-то в настройках.
+
+Отдельный раздел:
+
+COSTS
+
+И сверху огромным:
+
+YOU PAID
+
+$8,412
+
+IN TRADING COSTS
+
+LAST 12 MONTHS
+
+Под этим:
+
+7.2%
+
+OF YOUR GROSS PROFITS
+Cost breakdown
+Trading fees       $4,821
+Funding            $2,181
+Slippage             $821
+Interest             $381
+Withdrawal fees      $208
+Fee by asset
+BTCUSDT      $2,418
+ETHUSDT      $1,211
+SOLUSDT        $824
+DOGEUSDT       $211
+Maker vs Taker
+MAKER
+
+Volume
+$1.2M
+
+Fees
+$281
+
+
+TAKER
+
+Volume
+$4.8M
+
+Fees
+$3,810
+
+И:
+
+Taker execution
+
+82%
+Funding
+
+Отдельный большой блок:
+
+FUNDING
+
+Paid
+-$3,211
+
+Received
++$1,030
+
+Net
+-$2,181
+
+By symbol:
+
+BTC          -$911
+ETH          -$811
+SOL          -$459
+Самая цепляющая метрика
+COST PER $1 OF GROSS PROFIT
+
+$0.21
+
+То есть:
+
+На каждый заработанный до расходов доллар ты отдаёшь рынку 21 цент.
+
+Не как совет.
+
+Просто факт.
+
+6. RISK
+
+Вот здесь можно сделать реально красивый терминал.
+
+Но я бы не начинал сразу с VaR, Monte Carlo и миллиона сложных метрик.
+
+Первая версия Risk должна содержать только то, что человеку сразу понятно.
+
+Current exposure
+TOTAL EQUITY
+$126,420
+
+GROSS EXPOSURE
+$411,281
+
+EFFECTIVE LEVERAGE
+3.25x
+
+MARGIN USED
+42.1%
+Exposure by asset
+BTC      +$182,000
+ETH      +$94,000
+SOL       -$42,000
+XRP       +$31,000
+Long / Short
+Long exposure
+$321,000
+
+Short exposure
+$90,000
+
+Net exposure
++$231,000
+Portfolio concentration
+BTC     48%
+ETH     25%
+SOL     11%
+XRP      8%
+Other    8%
+Drawdown
+
+Большой блок:
+
+CURRENT DRAWDOWN
+
+-6.8%
+
+Peak
+$135,821
+
+Current
+$126,420
+
+Loss from peak
+-$9,401
+
+Days underwater
+12
+Max historical drawdown
+MAX DRAWDOWN
+
+-22.4%
+
+Peak
+$101,820
+
+Bottom
+$79,012
+
+Recovery
+41 days
+Потом добавляем Stress Test
+
+Но это уже Phase 2.
+
+Например:
+
+WHAT IF...
+
+BTC      -10%
+ETH      -12%
+SOL      -18%
+
+→
+
+Estimated portfolio impact
+
+-$18,812
+
+Equity after shock
+
+$107,608
+
+Очень круто, но MVP без этого выживет.
+
+7. INSIGHTS
+
+Вот сюда уже подключаем умную аналитику.
+
+Но очень важный принцип:
+
+AI ничего сам не считает.
+
+Он получает уже готовые цифры.
+
+Например наш движок обнаружил:
+
+BTC SHORT
+
+Trades:
+62
+
+Net:
+-$4,821
+
+Profit factor:
+0.61
+
+Confidence:
+High
+
+AI превращает это в:
+
+BTC shorts materially reduced your results during the selected period.
+
+62 trades generated a combined net result of −$4,821.
+
+Long BTC trades over the same period generated +$7,410.
+
+Кнопки:
+
+[ View 62 trades ]
+
+[ Analyze pattern ]
+Какие Insights реально делать
+
+Не 100 штук.
+
+Сначала 10 типов.
+
+1. Cost spike
+
+Trading costs increased 34% compared with your previous 30 days.
+
+2. Weak symbol
+
+SOL generated −$2,812 across 41 trades.
+
+3. Strong symbol
+
+BTC generated 58% of your total trading profit.
+
+4. Weak time
+
+Trades opened between 13:00–16:00 UTC produced −$3,011.
+
+5. Leverage issue
+
+Trades above 10x leverage generated a Profit Factor of 0.64.
+
+6. Exit inefficiency
+
+Median trade captured only 48% of Maximum Favorable Excursion.
+
+7. Funding leak
+
+Funding costs consumed 18% of gross derivatives profit.
+
+8. Drawdown
+
+Your current drawdown has lasted 17 days.
+
+9. Over-concentration
+
+62% of gross exposure currently comes from BTC.
+
+10. Change in behavior
+
+Your average position size increased 41% over the last two weeks.
+
+Вот этого для первой версии хватит с головой.
+
+Что НЕ реализовываем в первой версии
+
+Очень важно.
+
+Иначе проект никогда не выйдет.
+
+Не делаем пока:
+
+copy trading;
+wallet tracking;
+DeFi;
+NFT;
+tax accounting;
+полноценный trading journal с эмоциями;
+screenshots;
+AI chatbot;
+backtesting;
+trade replay;
+social network;
+leaderboard;
+Monte Carlo;
+options;
+complex VaR;
+automated trading;
+portfolio rebalancing.
+
+Всё это потом.
+
+Итого MVP продукта
+
+Вот прям конечный список.
+
+Connections
+Bybit
+Binance
+
+Read-only API
+
+Sync status
+Last sync
+Account type
+Overview
+Portfolio Value
+
+True Net PnL
+
+Trading PnL
+
+Total Costs
+
+Drawdown
+
+
+Portfolio chart
+
+Net Invested
+
+BTC benchmark
+
+
+Money Breakdown
+
+Asset allocation
+
+Recent insights
+Performance
+Net/Gross PnL
+
+Return
+
+Win Rate
+
+Profit Factor
+
+Average Win/Loss
+
+Expectancy
+
+Best/Worst trade
+
+Best/Worst day
+
+Drawdown
+
+
+PnL by:
+symbol
+direction
+exchange
+weekday
+
+PnL calendar
+Trades
+Reconstructed trades
+
+All fills
+
+Entries
+
+Partial exits
+
+Fees
+
+Funding
+
+Net PnL
+
+Leverage
+
+Duration
+
+
+Individual trade page
+
+Chart
+
+MFE
+
+MAE
+
+Profit captured
+Edge
+By symbol
+
+Long/short
+
+Day of week
+
+Hour
+
+Duration
+
+Leverage
+
+Position size
+
+Exchange
+
+Heatmap
+Costs
+Fees
+
+Funding
+
+Slippage
+
+Interest
+
+Withdrawal fees
+
+
+Maker/taker
+
+Costs by symbol
+
+Costs by exchange
+
+Costs / Gross Profit
+Risk
+Equity
+
+Exposure
+
+Effective leverage
+
+Margin utilization
+
+Long/short exposure
+
+Asset concentration
+
+Current drawdown
+
+Max drawdown
+Insights
+10 deterministic pattern types
+
+Confidence / sample size
+
+AI explanation
+
+Link directly to affected trades
+Какая должна быть навигация
+
+Максимально просто:
+
+⌂  Overview
+
+↗  Performance
+
+⇄  Trades
+
+◎  Edge
+
+$  Costs
+
+△  Risk
+
+✦  Insights
+
+────────────────
+
+⚙ Connections
+
+Всё.
+
+Не 25 пунктов.
+
+Как я бы расположил Overview
+
+Прям практически wireframe:
+
+┌────────────────────────────────────────────────────────────┐
+│ Portfolio                           Binance + Bybit    30D │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│ $126,420                                                   │
+│ +$18,842 TRUE PNL                                         │
+│                                                            │
+│ Portfolio Value   Trading PnL    Costs      Drawdown       │
+│ $126,420          +$24,122       -$5,280    -6.8%          │
+│                                                            │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│                 PORTFOLIO PERFORMANCE                      │
+│                                                            │
+│       ─────────── Portfolio                                │
+│       ----------- Net invested                             │
+│       ··········· BTC                                     │
+│                                                            │
+│                                                            │
+├──────────────────────────────┬─────────────────────────────┤
+│ MONEY FLOW                   │ ALLOCATION                  │
+│                              │                             │
+│ Trading      +$25,840        │ BTC    48%                  │
+│ Rewards         +$640        │ ETH    24%                  │
+│ Fees          -$2,620        │ SOL    13%                  │
+│ Funding       -$2,110        │ USDT   10%                  │
+│                              │ Other   5%                   │
+├──────────────────────────────┴─────────────────────────────┤
+│                                                            │
+│ INSIGHTS                                                   │
+│                                                            │
+│ ⚠ Funding costs increased 38%                             │
+│                                                          > │
+│ ⚠ 10x+ leverage trades are net negative                  │
+│                                                          > │
+│ ✓ BTC generated 61% of your total profit                 │
+│                                                          > │
+└────────────────────────────────────────────────────────────┘
+
+Вот такой первый экран уже реально может выглядеть очень дорого.
+
+Референсы, которые я бы дал дизайнеру
+TradeZella
+
+Брать:
+
+sidebar;
+dashboard density;
+PnL calendar;
+trade-detail UX;
+cross-analysis.
+
+Не копировать визуально один в один.
+
+Они сейчас предлагают 50+ reports и 30+ filters и делают большой упор на breakdown по setup, instrument, time и другим dimensions.
+
+CoinMarketMan
+
+Брать:
+
+crypto-native подход;
+несколько exchange accounts;
+derivatives-first UX;
+performance analytics.
+
+CoinMarketMan уже агрегирует crypto accounts, derivatives positions и overall PnL, поэтому он хороший прямой продуктовый референс для crypto-specific части.
+
+TradesViz
+
+Брать:
+
+уровень глубины analytics;
+customizable widgets;
+tables;
+filtering.
+
+Не брать:
+
+визуальную перегруженность.
+
+У них сейчас заявлено 600+ widgets, поэтому это отличный источник идей, но ужасная цель для первого релиза: нам лучше выбрать примерно 20 действительно важных представлений.
+
+Порядок разработки
+
+Я бы шёл строго так.
+
+Этап 1 — Data
+
+Сначала вообще никакой красоты.
+
+Bybit API
+Binance API
+     ↓
+Raw Events
+     ↓
+Normalized Ledger
+
+Система должна уметь ответить:
+
+почему текущий баланс пользователя равен именно X?
+
+Этап 2 — Accounting Engine
+
+Строим:
+
+Balances
+Deposits
+Withdrawals
+
+Fees
+Funding
+
+Realized PnL
+Unrealized PnL
+
+Cash flows
+
+И reconciliation.
+
+Например биржа говорит:
+
+Balance:
+$126,420.42
+
+Наш расчёт:
+
+$126,420.40
+
+Ошибка:
+
+$0.02
+
+В идеале всё должно сходиться.
+
+Этап 3 — Trade Engine
+orders
+
++
+
+executions
+
++
+
+positions
+
+↓
+
+reconstructed trades
+
+Без этого большая часть нашего продукта не существует.
+
+Этап 4 — Analytics
+
+Расчёт:
+
+PnL
+
+Win rate
+
+Profit Factor
+
+Expectancy
+
+Drawdown
+
+MFE
+
+MAE
+
+Duration
+
+Leverage
+
+Fees
+
+Funding
+
+Exposure
+Этап 5 — Aggregation Engine
+
+Нужно уметь делать один и тот же metric по любому dimension:
+
+metric:
+
+Net PnL
+
+
+group by:
+
+Symbol
+Weekday
+Hour
+Direction
+Leverage bucket
+Duration
+Exchange
+
+Это позволит построить почти весь Edge без написания отдельной логики для каждого графика.
+
+Этап 6 — Pattern Engine
+
+Например:
+
+IF
+
+trades > 30
+
+AND
+
+profit_factor < 0.8
+
+AND
+
+net_pnl < 0
+
+THEN
+
+create Weak Segment Insight
+
+Или:
+
+IF
+
+cost_ratio_30d
+>
+cost_ratio_previous_30d * 1.25
+
+THEN
+
+Cost Spike
+
+То есть сначала математика.
+
+Этап 7 — AI
+
+И только теперь:
+
+Pattern engine
+      ↓
+structured insight
+      ↓
+LLM
+      ↓
+human-readable explanation
+
+LLM никогда не должен самостоятельно считать:
+
+“Кажется, ты хуже торгуешь по вторникам”.
+
+Нет.
+
+База должна передать:
+
+Tuesday:
+
+n = 81
+
+Net PnL = -2812
+
+PF = 0.71
+
+confidence = HIGH
+
+И только потом LLM красиво объясняет.
+
+Если совсем сжать идею продукта до одной схемы
+BINANCE / BYBIT
+        │
+        ▼
+     LEDGER
+        │
+        ├──────── Portfolio
+        │
+        ├──────── Trades
+        │
+        ├──────── Costs
+        │
+        ├──────── Risk
+        │
+        ▼
+   ANALYTICS ENGINE
+        │
+        ├──────── Performance
+        │
+        ├──────── Edge
+        │
+        └──────── Patterns
+                    │
+                    ▼
+                 INSIGHTS
+
+Вот это я бы реально строил.
+
+Не 100 фич.
+
+А очень качественно сделать 7 экранов, в которых пользователь может пройти от общей стоимости портфеля до конкретного fill, понять каждый доллар прибыли/убытка и увидеть статистически заметные паттерны собственной торговли.
+
+Если довести Overview + Money Flow + reconstructed Trades + MFE/MAE + Costs + Edge + Insights до очень высокого качества, уже первая версия будет выглядеть не как “ещё один crypto tracker”, а как настоящий профессиональный терминал аналитики.

@@ -1,0 +1,12 @@
+go 1.24.0
+
+use (
+	./api
+	./backtest
+	./news/collector
+	./scanners/market-data
+	./similarity
+	./telegram/admin-bot
+	./telegram/news-publisher
+	./workers/alert-engine
+)

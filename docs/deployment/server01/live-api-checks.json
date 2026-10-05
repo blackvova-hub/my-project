@@ -1,0 +1,54 @@
+{
+  "login": "passed",
+  "similarity_catalog_assets": 1152,
+  "minute_samples": [
+    {
+      "exchange": "binance",
+      "market": "spot",
+      "timestamp": 1789991160000,
+      "matches_exchange": true
+    },
+    {
+      "exchange": "binance",
+      "market": "linear",
+      "timestamp": 1789991160000,
+      "matches_exchange": true
+    },
+    {
+      "exchange": "bybit",
+      "market": "linear",
+      "timestamp": 1789991160000,
+      "matches_exchange": true
+    },
+    {
+      "exchange": "bybit",
+      "market": "spot",
+      "timestamp": 1789991160000,
+      "matches_exchange": true
+    }
+  ],
+  "backtest_spot": {
+    "id": "6f3aa02e-4197-4bf4-a266-c557ec399db8",
+    "status": "completed",
+    "engine": "2.0.0"
+  },
+  "backtest_linear": {
+    "id": "51f33a94-7ce0-43ec-9f1b-bbef6cf0563d",
+    "status": "completed",
+    "engine": "2.0.0"
+  },
+  "similarity": {
+    "id": "5fb3ad44-67a6-4746-a471-3fc9f276fc85",
+    "status": "completed",
+    "matches": 6
+  },
+  "charts_response": true,
+  "storage_tables": [
+    {
+      "name": "candles_1m"
+    },
+    {
+      "name": "indicator_history"
+    }
+  ]
+}

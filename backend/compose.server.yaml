@@ -1,0 +1,77 @@
+# LAN server deployment. Base + local supply all application services; this
+# override moves execution to server01 and never mounts /srv/fast.
+name: shortlong
+services:
+  postgres:
+    volumes: !override
+      - /var/lib/shortlong/postgres:/var/lib/postgresql/data
+    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=512MB"]
+  redis:
+    command: !override
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - 6gb
+      - --maxmemory-policy
+      - noeviction
+      - --requirepass
+      - "${REDIS_PASSWORD}"
+  backend:
+    environment:
+      APP_ENV: local
+      CORS_ORIGIN: "http://192.168.0.124"
+      FRONTEND_URL: "http://192.168.0.124"
+      COOKIE_SECURE: "false"
+      HSTS_MAX_AGE: "0"
+      TURNSTILE_ENABLED: "false"
+      TURNSTILE_SECRET: ""
+      TELEGRAM_POLLING_ENABLED: "false"
+  frontend:
+    ports: !override
+      - "192.168.0.124:80:80"
+  clickhouse:
+    cpus: "3.0"
+    mem_limit: 6g
+    volumes: !override
+      - /srv/archive/shortlong-clickhouse:/var/lib/clickhouse
+      - ./deploy/server/clickhouse.xml:/etc/clickhouse-server/config.d/server-budget.xml:ro
+  backtest_worker:
+    cpus: "1.5"
+    environment:
+      CANDLE_ARCHIVE_MODE: "1m"
+      BACKTEST_CONCURRENCY: "1"
+      MARKET_HISTORY_RPS: "8"
+  market_history:
+    command: ["/app/archive-sync"]
+    cpus: "1.5"
+    mem_limit: 1g
+    environment:
+      CANDLE_ARCHIVE_MODE: "1m"
+      MARKET_HISTORY_MONTHS: "12"
+      MARKET_HISTORY_RPS: "8"
+      ARCHIVE_WORKERS_PER_MARKET: "2"
+      ARCHIVE_REFRESH_MINUTES: "60"
+      BINANCE_SPOT_BASE_URL: "https://api.binance.com"
+      BINANCE_FUTURES_BASE_URL: "https://fapi.binance.com"
+    healthcheck:
+      test: ["CMD", "/app/archive-sync", "-healthcheck"]
+      start_period: 180s
+  similarity_worker:
+    environment:
+      CANDLE_ARCHIVE_MODE: "1m"
+      MARKET_HISTORY_RPS: "8"
+  qdrant:
+    mem_limit: 3g
+  news_bot:
+    environment:
+      # The configured external agent returns agent_not_found. RSS ingestion
+      # stays operational; restore these IDs when the provider supplies valid ones.
+      TIMEWEB_AGENT_ACCESS_ID: ""
+      TIMEWEB_SUMMARY_AGENT_ACCESS_ID: ""
+  # Publishing into an existing external Telegram channel is opt-in. The image
+  # is built/tested, but a fresh database must not republish news into that channel.
+  telegram_news_publisher:
+    profiles: ["telegram-publish"]

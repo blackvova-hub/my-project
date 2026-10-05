@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE news_items DROP COLUMN IF EXISTS trust_score;
+COMMIT;

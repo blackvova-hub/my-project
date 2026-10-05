@@ -1,0 +1,20 @@
+{
+  "base": "http://192.168.0.124",
+  "checks": [
+    "Real account is isolated from explicitly selected demonstration data",
+    "Seven analytics sections",
+    "Authenticated dataset, no fabricated live history, CSRF rejection and unauthenticated rejection",
+    "Period filter, interactive chart, category → symbol → trade → executions, annotation, CSV",
+    "Calendar and heatmap drilldowns, insight evidence dialog and Escape",
+    "Real connection form, exchange switch, read-only consent gate, existing profile",
+    "Site palette/font/radius/brand; concept native viewport; all eight sections and form at 390px",
+    "Custom dropdown selection, keyboard navigation, Escape/Tab, mobile portal, section animation and reduced motion",
+    "Existing home, scanners, strategy testing, replay, news and community routes restored; mobile header navigation works"
+  ],
+  "errors": [],
+  "viewports": [
+    "1536x1100",
+    "1482x1061",
+    "390x844"
+  ]
+}

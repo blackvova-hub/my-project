@@ -1,0 +1,6 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.17.0
+    ports: ["127.0.0.1:26333:6333"]
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"

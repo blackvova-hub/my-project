@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/vite.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (() => {
+        let theme;
+        try {
+          theme = localStorage.getItem("site-theme");
+        } catch {
+          // Storage may be unavailable in a private browsing context.
+        }
+        if (theme !== "light" && theme !== "dark" && theme !== "green") {
+          theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.classList.add(theme);
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+    <title>Short-And-Long - Криптоплатформа с сигналами, которые можно настроить</title>
+    <meta
+      name="description"
+      content="Short-And-Long — криптоплатформа с настраиваемыми торговыми сигналами, уведомлениями и аналитикой в реальном времени."
+    />
+    <meta
+      name="keywords"
+      content="криптоплатформа, торговые сигналы, крипто сигналы, алерты, аналитика, short, long, криптовалюты, шорт анд лонг, short and long"
+    />
+    <link rel="canonical" href="https://short-and-long.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:title" content="Short-And-Long - Криптоплатформа с сигналами, которые можно настроить" />
+    <meta
+      property="og:description"
+      content="Криптоплатформа с настраиваемыми торговыми сигналами, уведомлениями и аналитикой в реальном времени."
+    />
+    <meta property="og:image" content="/images/hero-bg.jpeg" />
+    <meta property="og:url" content="https://short-and-long.com/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Short-And-Long - Криптоплатформа с сигналами, которые можно настроить" />
+    <meta
+      name="twitter:description"
+      content="Криптоплатформа с настраиваемыми торговыми сигналами, уведомлениями и аналитикой в реальном времени."
+    />
+    <meta name="twitter:image" content="/images/hero-bg.jpeg" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

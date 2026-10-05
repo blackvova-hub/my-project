@@ -1,0 +1,8 @@
+{
+  "checks": [
+    "Browser login and authenticated navigation"
+  ],
+  "errors": [],
+  "failures": [],
+  "error": "TimeoutError: page.waitForResponse: Timeout 45000ms exceeded while waiting for event \"response\""
+}

@@ -1,0 +1,51 @@
+services:
+  # OKX/Bitget/Gate.io liquidation collectors intentionally run only in the
+  # main-server compose. They are absent here, so this server cannot duplicate
+  # their WebSocket subscriptions or Redis events.
+  frontend:
+    build:
+      context: ../../frontend/web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: "${VITE_API_BASE_URL:-/api}"
+        VITE_TURNSTILE_SITE_KEY: "${VITE_TURNSTILE_SITE_KEY:-}"
+    image: shortlong-frontend:local
+    container_name: crypto_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/ssl/short-and-long:/etc/ssl/short-and-long:ro
+
+  scanner_shard2:
+    build:
+      context: ../../server/scanners/market-data
+      dockerfile: Dockerfile
+    container_name: crypto_scanner_shard2
+    restart: unless-stopped
+    environment:
+      EXCHANGE: "bybit"
+      MARKET_TYPE: "perpetual"
+      # Must resolve to the main server's private VPN/VPC endpoint, never a public IP.
+      REDIS_ADDR: "${MAIN_REDIS_PRIVATE_ADDR:?MAIN_REDIS_PRIVATE_ADDR must be set}"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      SYMBOLS_MODE: "api"
+      BYBIT_CATEGORY: "linear"
+      SHARD_TOTAL: "2"
+      SHARD_INDEX: "1"
+      PUBLISHER: "redis"
+      COMPACT_REDIS_STREAM: "candles:v3:bybit:perpetual"
+      COMPACT_RETENTION_HOURS: "${COMPACT_RETENTION_HOURS:-26}"
+      FUNDING_INTERVAL_HOURS: "8"
+      WORKERS: "24"
+      RPS: "30"
+      BURST: "60"
+      TRADE_LIMIT: "1000"
+      OI_INTERVAL: "5min"
+      ORDERBOOK_ENABLED: "0"
+      HTTP_TIMEOUT_SECONDS: "15"
+      SYMBOLS_LOAD_TIMEOUT_SECONDS: "40"
+      SYMBOLS_LOAD_RETRIES: "3"
+      RUN_TIMEOUT_SECONDS: "55"
+      CANDLE_SETTLE_DELAY_SECONDS: "2"

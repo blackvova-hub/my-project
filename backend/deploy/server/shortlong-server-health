@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+report_dir=/opt/shortlong/reports
+timestamp=$(date -u +%Y%m%dT%H%M%SZ)
+temporary=$(mktemp "$report_dir/.server-health.XXXXXX")
+trap 'rm -f "$temporary"' EXIT
+/opt/shortlong/backend/deploy/server/server-health.sh > "$temporary"
+chmod 0640 "$temporary"
+mv "$temporary" "$report_dir/server-health-$timestamp.log"
+ln -sfn "server-health-$timestamp.log" "$report_dir/server-health-latest.log"
+trap - EXIT

@@ -1,0 +1,2 @@
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS watchlist jsonb NOT NULL DEFAULT '["BTCUSDT","ETHUSDT"]'::jsonb;

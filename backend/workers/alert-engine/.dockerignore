@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+*.log
+*.key
+*.pem
+*.p12
+*.pfx
+alert-engine
+alert-engine.exe

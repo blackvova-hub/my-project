@@ -1,0 +1,29 @@
+{
+  "start": "2026-09-14T10:58:08.366991+00:00",
+  "idleSeconds": 35,
+  "before": {
+    "collections": [],
+    "status": {
+      "mode": "on_demand",
+      "progress": [],
+      "version": "ohlcv_v2_bc7bceba505a"
+    },
+    "jobs_streams_repairs": "0|0|0",
+    "tables": "candles",
+    "stats": "dev-qdrant-1 CPU=0.02% RAM=25.86MiB / 7.46GiB\ndev-similarity_worker-1 CPU=0.00% RAM=3.648MiB / 7.46GiB"
+  },
+  "after": {
+    "collections": [],
+    "status": {
+      "mode": "on_demand",
+      "progress": [],
+      "version": "ohlcv_v2_bc7bceba505a"
+    },
+    "jobs_streams_repairs": "0|0|0",
+    "tables": "candles",
+    "stats": "dev-qdrant-1 CPU=0.02% RAM=25.48MiB / 7.46GiB\ndev-similarity_worker-1 CPU=0.00% RAM=3.676MiB / 7.46GiB"
+  },
+  "qdrantWrites": 0,
+  "rawRowsBeforePurge": 51793774,
+  "rawRowsAfterPurge": 51793774
+}

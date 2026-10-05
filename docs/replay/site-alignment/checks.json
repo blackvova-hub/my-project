@@ -1,0 +1,9 @@
+{
+  "checks": [
+    "Header geometry/typography/background/account styling exactly matches home at 1586px",
+    "Header geometry/typography/background/account styling exactly matches home at 1024px",
+    "Header geometry/typography/background/account styling exactly matches home at 390px",
+    "Mobile Replay and trading controls remain usable; no document overflow"
+  ],
+  "errors": []
+}

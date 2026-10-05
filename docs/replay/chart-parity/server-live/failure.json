@@ -1,0 +1,7 @@
+{
+  "checks": [
+    "Automatic real archive load: ready Play and trading, future candles hidden, exact visible Close"
+  ],
+  "errors": [],
+  "error": "Error: expect(received).toBeCloseTo(expected, precision)\n\nExpected: 128.5\nReceived: 127.5\n\nExpected precision:    1\nExpected difference: < 0.05\nReceived difference:   1"
+}

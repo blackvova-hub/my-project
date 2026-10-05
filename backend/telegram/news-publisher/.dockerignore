@@ -1,0 +1,11 @@
+.git
+
+bot.go
+telegram-news-publisher
+*.log
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx

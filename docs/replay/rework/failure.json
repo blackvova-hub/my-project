@@ -1,0 +1,8 @@
+{
+  "checks": [
+    "Счёт и PnL в карточке сделки; единая полоса управления, высокий график, без комиссии и кнопки архива",
+    "Каталог страницы монеты: 22 индикатора и объём, включая Supertrend и Smart Money"
+  ],
+  "errors": [],
+  "error": "Error: expect(received).toBeGreaterThan(expected)\n\nExpected: > 2022.6018\nReceived:   2014.686\n\nCall Log:\n- Timeout 5000ms exceeded while waiting on the predicate"
+}

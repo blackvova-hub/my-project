@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "Automatic real archive load: ready Play and trading, future candles hidden, exact visible Close",
+    "Exact next step; stable zoom at 20x; trade while playing pauses at visible candle; no-fee Long/Short, conditional close panel, journal and CSV",
+    "All six indicators; RSI/MACD pane switching; drawing selection/drag/lock/hide/magnet, two-click ray/ruler and inline text; undo/clear; pan/zoom and return",
+    "Date and candle selection truncate future, reset account/drawings, preserve indicators; keyboard step and restart",
+    "Archive dialog traps focus and Escape closes; full archive view returns; Play restarts from full view",
+    "Reproduced user ETHBTCUSDT 28 Aug–2 Sep 1m: 8640 real bars, immediate working step and trade",
+    "503 preserves prior session; oversized period rejected; empty archive shows explicit empty state",
+    "1280/1024/768/390px no horizontal overflow, usable controls; fullscreen; existing strategy tester accessible"
+  ],
+  "errors": []
+}

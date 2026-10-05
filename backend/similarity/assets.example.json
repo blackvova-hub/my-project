@@ -1,0 +1,282 @@
+[
+  {
+    "market": "spot",
+    "symbol": "BTCUSDT",
+    "sectors": [
+      "l1"
+    ],
+    "isAlt": false,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "ETHUSDT",
+    "sectors": [
+      "l1"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "SOLUSDT",
+    "sectors": [
+      "l1"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "AVAXUSDT",
+    "sectors": [
+      "l1"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "AAVEUSDT",
+    "sectors": [
+      "defi"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "UNIUSDT",
+    "sectors": [
+      "defi"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "ARBUSDT",
+    "sectors": [
+      "l2"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "OPUSDT",
+    "sectors": [
+      "l2"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "DOGEUSDT",
+    "sectors": [
+      "meme"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "SHIBUSDT",
+    "sectors": [
+      "meme"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "FETUSDT",
+    "sectors": [
+      "ai"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "RENDERUSDT",
+    "sectors": [
+      "ai"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "ONDOUSDT",
+    "sectors": [
+      "rwa"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "spot",
+    "symbol": "AXSUSDT",
+    "sectors": [
+      "gaming"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "BTCUSDT",
+    "sectors": [
+      "l1"
+    ],
+    "isAlt": false,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "ETHUSDT",
+    "sectors": [
+      "l1"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "SOLUSDT",
+    "sectors": [
+      "l1"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "AVAXUSDT",
+    "sectors": [
+      "l1"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "AAVEUSDT",
+    "sectors": [
+      "defi"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "UNIUSDT",
+    "sectors": [
+      "defi"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "ARBUSDT",
+    "sectors": [
+      "l2"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "OPUSDT",
+    "sectors": [
+      "l2"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "DOGEUSDT",
+    "sectors": [
+      "meme"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "SHIBUSDT",
+    "sectors": [
+      "meme"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "FETUSDT",
+    "sectors": [
+      "ai"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "RENDERUSDT",
+    "sectors": [
+      "ai"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "ONDOUSDT",
+    "sectors": [
+      "rwa"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  },
+  {
+    "market": "linear",
+    "symbol": "AXSUSDT",
+    "sectors": [
+      "gaming"
+    ],
+    "isAlt": true,
+    "isStablecoin": false,
+    "enabled": true
+  }
+]

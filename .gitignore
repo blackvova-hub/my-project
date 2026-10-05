@@ -1,0 +1,82 @@
+# =========================
+# Secrets / environment
+# =========================
+**/.env
+**/.env.*
+!**/.env.example
+
+# НЕ добавляй это исключение, если .env.production содержит токены,
+# пароли, API keys или другие секреты
+# !**/.env.production
+
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+
+
+# =========================
+# Temporary / local tools
+# =========================
+tmp/
+.codex/
+.playwright-cli/
+**/.playwright-cli/
+
+*.tmp
+*.log
+
+
+# =========================
+# Go
+# =========================
+.gocache/
+.gocache-codex/
+**/.gocache/
+**/.gocache-codex/
+
+**/*.exe
+**/*.out
+
+coverage
+coverage.*
+coverage/
+
+# =========================
+# Node / Frontend
+# =========================
+**/node_modules/
+**/dist/
+**/dist-ssr/
+
+**/.vite/
+**/.cache/
+
+
+# =========================
+# Testing
+# =========================
+**/test-results/
+**/playwright-report/
+**/blob-report/
+
+**/*.snapshot
+
+
+# =========================
+# Editors
+# =========================
+.vscode/
+.idea/
+
+*.swp
+*.swo
+
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+noREADME.md

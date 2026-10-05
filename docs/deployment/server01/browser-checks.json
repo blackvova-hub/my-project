@@ -1,0 +1,10 @@
+{
+  "checks": [
+    "Browser login and authenticated navigation",
+    "Coin modal, minute interval and real chart canvas",
+    "Backtest builder renders",
+    "Mobile viewport has no horizontal overflow"
+  ],
+  "errors": [],
+  "failures": []
+}

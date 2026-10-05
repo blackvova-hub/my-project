@@ -1,0 +1,9 @@
+{
+  "checks": [
+    "bybit/linear: actual 1m archive and exact 5m/15m/1h/4h aggregation",
+    "bybit/spot: actual 1m archive and exact 5m/15m/1h/4h aggregation",
+    "binance/linear: actual 1m archive and exact 5m/15m/1h/4h aggregation",
+    "binance/spot: actual 1m archive and exact 5m/15m/1h/4h aggregation"
+  ],
+  "errors": []
+}

@@ -1,0 +1,203 @@
+[
+  {
+    "page": "Overview",
+    "navigation": [
+      "Overview",
+      "Performance",
+      "Trades",
+      "Edge",
+      "Costs",
+      "Risk",
+      "Insights",
+      "Connections"
+    ],
+    "subtitle": "Every dollar. Every trade. The full picture.",
+    "headings": [
+      "Portfolio performance",
+      "Money breakdown",
+      "Asset allocation",
+      "Recent insights"
+    ],
+    "typography": {
+      "size": "30px",
+      "weight": "600"
+    },
+    "diff": []
+  },
+  {
+    "page": "Performance",
+    "navigation": [
+      "Overview",
+      "Performance",
+      "Trades",
+      "Edge",
+      "Costs",
+      "Risk",
+      "Insights",
+      "Connections"
+    ],
+    "subtitle": "Understand the quality of your returns.",
+    "headings": [
+      "PnL calendar",
+      "Performance metrics",
+      "By symbol",
+      "By direction",
+      "By exchange",
+      "By weekday"
+    ],
+    "typography": {
+      "size": "30px",
+      "weight": "600"
+    },
+    "diff": []
+  },
+  {
+    "page": "Trades",
+    "navigation": [
+      "Overview",
+      "Performance",
+      "Trades",
+      "Edge",
+      "Costs",
+      "Risk",
+      "Insights",
+      "Connections"
+    ],
+    "subtitle": "From position to every execution.",
+    "headings": [],
+    "typography": {
+      "size": "30px",
+      "weight": "600"
+    },
+    "diff": []
+  },
+  {
+    "page": "Edge",
+    "navigation": [
+      "Overview",
+      "Performance",
+      "Trades",
+      "Edge",
+      "Costs",
+      "Risk",
+      "Insights",
+      "Connections"
+    ],
+    "subtitle": "Find what actually makes you money.",
+    "headings": [
+      "Day × hour",
+      "Long vs short",
+      "By symbol",
+      "Leverage analysis",
+      "Duration analysis",
+      "By weekday"
+    ],
+    "typography": {
+      "size": "30px",
+      "weight": "600"
+    },
+    "diff": []
+  },
+  {
+    "page": "Costs",
+    "navigation": [
+      "Overview",
+      "Performance",
+      "Trades",
+      "Edge",
+      "Costs",
+      "Risk",
+      "Insights",
+      "Connections"
+    ],
+    "subtitle": "Know what it costs to trade.",
+    "headings": [
+      "Cost breakdown",
+      "Maker vs taker",
+      "Funding",
+      "Costs by symbol",
+      "Costs by exchange"
+    ],
+    "typography": {
+      "size": "30px",
+      "weight": "600"
+    },
+    "diff": []
+  },
+  {
+    "page": "Risk",
+    "navigation": [
+      "Overview",
+      "Performance",
+      "Trades",
+      "Edge",
+      "Costs",
+      "Risk",
+      "Insights",
+      "Connections"
+    ],
+    "subtitle": "See your exposure before the market moves.",
+    "headings": [
+      "Exposure by asset",
+      "Portfolio concentration",
+      "Current drawdown",
+      "Max historical drawdown",
+      "Drawdown (from peak)"
+    ],
+    "typography": {
+      "size": "30px",
+      "weight": "600"
+    },
+    "diff": []
+  },
+  {
+    "page": "Insights",
+    "navigation": [
+      "Overview",
+      "Performance",
+      "Trades",
+      "Edge",
+      "Costs",
+      "Risk",
+      "Insights",
+      "Connections"
+    ],
+    "subtitle": "Patterns in your data. Evidence behind every insight.",
+    "headings": [
+      "SOLUSDT reduced your results",
+      "BTCUSDT led your trading profit",
+      "High leverage reduced your results",
+      "Less than half of favorable movement was captured",
+      "Your current drawdown is ongoing",
+      "Methodology"
+    ],
+    "typography": {
+      "size": "30px",
+      "weight": "600"
+    },
+    "diff": []
+  },
+  {
+    "page": "Connections",
+    "navigation": [
+      "Overview",
+      "Performance",
+      "Trades",
+      "Edge",
+      "Costs",
+      "Risk",
+      "Insights",
+      "Connections"
+    ],
+    "subtitle": "Your exchanges. One clear picture.",
+    "headings": [
+      "Data coverage & reconciliation",
+      "What is included"
+    ],
+    "typography": {
+      "size": "30px",
+      "weight": "600"
+    },
+    "diff": []
+  }
+]

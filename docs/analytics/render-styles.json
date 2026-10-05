@@ -1,0 +1,8 @@
+{
+  "background": "linear-gradient(rgb(31, 51, 32), rgb(26, 38, 28), rgb(21, 29, 23))",
+  "font": "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+  "accent": "#34d399",
+  "surface": "rgba(255, 255, 255, 0.05)",
+  "radius": "16px",
+  "brand": "Short&Long"
+}

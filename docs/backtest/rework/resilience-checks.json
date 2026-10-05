@@ -1,0 +1,22 @@
+{
+  "checks": [
+    "failed chart chunk preserves results and trades; reload restores chart",
+    "all execution inputs reach worker; indicator exit closes real positions with TP disabled",
+    "trade pagination and methodology disclosure",
+    "zero trades are explained and metrics stay finite",
+    "animated history/exit disclosures and reduced-motion interaction",
+    "latest desktop/mobile visual captures"
+  ],
+  "jobs": [
+    {
+      "name": "exit by indicator with TP disabled and custom execution parameters",
+      "id": "24a34377-d9b7-4c3e-807f-39f109b4ad6c",
+      "trades": 720
+    },
+    {
+      "name": "zero matching signals",
+      "id": "6632ef18-1cb4-45b9-ba9d-030d4915e943",
+      "trades": 0
+    }
+  ]
+}

@@ -1,0 +1,678 @@
+name: dev
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: crypto_postgres
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: alerts
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}"
+    ports:
+      - "${POSTGRES_BIND_IP:-127.0.0.1}:5435:5432"
+    volumes:
+      - /mnt/data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d alerts"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    container_name: crypto_redis
+    logging: *default-logging
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+    ports:
+      - "${REDIS_BIND_IP:-127.0.0.1}:6379:6379"
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - 10gb
+      - --maxmemory-policy
+      - noeviction
+      - --requirepass
+      - "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli --no-auth-warning ping | grep -qx PONG"]
+      interval: 3s
+      timeout: 3s
+      retries: 60
+
+  backend:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      additional_contexts:
+        backtest: ./backtest
+    container_name: crypto_backend
+    logging: *default-logging
+    environment:
+      HTTP_ADDR: ":8080"
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/alerts?sslmode=disable"
+      CORS_ORIGIN: "https://short-and-long.ru"
+      COOKIE_SECURE: "true"
+      HSTS_MAX_AGE: "31536000"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      REDIS_DB: "0"
+      BYBIT_BASE_URL: "https://api.bybit.com"
+      BINANCE_SPOT_BASE_URL: "https://api.binance.com"
+      BINANCE_FUTURES_BASE_URL: "https://fapi.binance.com"
+      SKIP_MIGRATIONS: "0"
+      APP_ENV: "${APP_ENV:-production}"
+      FRONTEND_URL: "${FRONTEND_URL}"
+      RESET_TOKEN_SECRET: "${RESET_TOKEN_SECRET}"
+      ANALYTICS_ENCRYPTION_KEY: "${ANALYTICS_ENCRYPTION_KEY:-}"
+      TRUSTED_PROXY_CIDRS: "${TRUSTED_PROXY_CIDRS:-10.20.0.2/32,172.16.0.0/12}"
+      SMTP_HOST: "${SMTP_HOST}"
+      SMTP_PORT: "${SMTP_PORT}"
+      SMTP_USER: "${SMTP_USER}"
+      SMTP_PASS: "${SMTP_PASS}"
+      SMTP_FROM: "${SMTP_FROM}"
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}"
+      TELEGRAM_BOT_USERNAME: "${TELEGRAM_BOT_USERNAME}"
+      TELEGRAM_WEBHOOK_SECRET: "${TELEGRAM_WEBHOOK_SECRET}"
+      # Production/default mode: Telegram delivers updates to the HTTPS webhook.
+      TELEGRAM_POLLING_ENABLED: "false"
+      TURNSTILE_SECRET: "${TURNSTILE_SECRET}"
+      TURNSTILE_ENABLED: "${TURNSTILE_ENABLED}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-https://api.openai.com/v1}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-gpt-5.4-mini}"
+      OPENAI_DAILY_TOKENS: "${OPENAI_DAILY_TOKENS:-150000}"
+      SIMILARITY_URL: "http://similarity_worker:8092"
+      CLICKHOUSE_URL: "http://clickhouse:8123"
+      CLICKHOUSE_USER: backtest
+      CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}}"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./certs:/certs:ro
+      - marketcache:/home/app/.cache/short-long
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8-alpine
+    logging: *default-logging
+    environment:
+      CLICKHOUSE_DB: shortlong_backtest
+      CLICKHOUSE_USER: backtest
+      CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}}"
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - backtest_candles:/var/lib/clickhouse
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  backtest_worker:
+    build:
+      context: ./backtest
+    logging: *default-logging
+    environment:
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/alerts?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      CLICKHOUSE_URL: "http://clickhouse:8123"
+      CLICKHOUSE_USER: backtest
+      CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}}"
+      BYBIT_BASE_URL: "${BACKTEST_BYBIT_BASE_URL:-https://api.bybit.com}"
+      BACKTEST_CONCURRENCY: "${BACKTEST_CONCURRENCY:-2}"
+      MARKET_HISTORY_RPS: "${MARKET_HISTORY_RPS:-30}"
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+
+  market_history:
+    build:
+      context: ./backtest
+    command: ["/app/history-sync"]
+    logging: *default-logging
+    environment:
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/alerts?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      CLICKHOUSE_URL: "http://clickhouse:8123"
+      CLICKHOUSE_USER: backtest
+      CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}}"
+      BYBIT_BASE_URL: "${BACKTEST_BYBIT_BASE_URL:-https://api.bybit.com}"
+      MARKET_HISTORY_MARKETS: "${MARKET_HISTORY_MARKETS:-spot,linear}"
+      MARKET_HISTORY_MONTHS: "${MARKET_HISTORY_MONTHS:-6}"
+      MARKET_HISTORY_REFRESH_HOURS: "${MARKET_HISTORY_REFRESH_HOURS:-12}"
+      MARKET_HISTORY_CONCURRENCY: "${MARKET_HISTORY_CONCURRENCY:-32}"
+      MARKET_HISTORY_RPS: "${MARKET_HISTORY_RPS:-30}"
+    restart: unless-stopped
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "/app/history-sync", "-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+
+  qdrant:
+    image: qdrant/qdrant:v1.17.0
+    cpus: "2.0"
+    logging: *default-logging
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+      QDRANT__SERVICE__API_KEY: "${QDRANT_API_KEY:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}}"
+      QDRANT__STORAGE__PERFORMANCE__MAX_SEARCH_THREADS: "2"
+      QDRANT__STORAGE__PERFORMANCE__OPTIMIZER_CPU_BUDGET: "2"
+      QDRANT__STORAGE__OPTIMIZERS__MAX_OPTIMIZATION_THREADS: "1"
+      QDRANT__STORAGE__HNSW_INDEX__MAX_INDEXING_THREADS: "2"
+    volumes:
+      - similarity_vectors:/qdrant/storage
+    restart: unless-stopped
+
+  similarity_worker:
+    cpus: "1.0"
+    build:
+      context: .
+      dockerfile: similarity/Dockerfile
+    logging: *default-logging
+    environment:
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/alerts?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      CLICKHOUSE_URL: "http://clickhouse:8123"
+      CLICKHOUSE_USER: backtest
+      CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}}"
+      QDRANT_URL: "http://qdrant:6333"
+      QDRANT_API_KEY: "${QDRANT_API_KEY:-${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}}"
+      SIMILARITY_WINDOWS: "${SIMILARITY_WINDOWS:-12:3,36:6,72:12,144:12,288:24,864:72,2016:144}"
+      SIMILARITY_WEIGHTS: "${SIMILARITY_WEIGHTS:-[0.4,0.2,0.15,0.15,0.1]}"
+      SIMILARITY_CONCURRENCY: "${SIMILARITY_CONCURRENCY:-1}"
+      SIMILARITY_HOT_SYMBOLS: "${SIMILARITY_HOT_SYMBOLS:-BTCUSDT,ETHUSDT,SOLUSDT}"
+      SIMILARITY_CANDIDATES: "${SIMILARITY_CANDIDATES:-500}"
+      BYBIT_BASE_URL: "${BACKTEST_BYBIT_BASE_URL:-https://api.bybit.com}"
+      MARKET_HISTORY_RPS: "${MARKET_HISTORY_RPS:-30}"
+    restart: unless-stopped
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "/app/similarity", "-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    depends_on:
+      backend:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  scanner_bybit_shard0:
+    build:
+      context: ./scanners/market-data
+      dockerfile: Dockerfile
+    container_name: crypto_scanner_bybit_shard1
+    logging: *default-logging
+    environment:
+      EXCHANGE: "bybit"
+      MARKET_TYPE: "perpetual"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      SYMBOLS_MODE: "api"
+      BYBIT_CATEGORY: "linear"
+      SHARD_TOTAL: "2"
+      SHARD_INDEX: "0"
+      PUBLISHER: "redis"
+      COMPACT_REDIS_STREAM: "candles:v3:bybit:perpetual"
+      COMPACT_RETENTION_HOURS: "${COMPACT_RETENTION_HOURS:-26}"
+      WORKERS: "24"
+      RPS: "30"
+      BURST: "60"
+      TRADE_LIMIT: "1000"
+      OI_INTERVAL: "5min"
+      ORDERBOOK_ENABLED: "0"
+      HTTP_TIMEOUT_SECONDS: "15"
+      SYMBOLS_LOAD_TIMEOUT_SECONDS: "40"
+      SYMBOLS_LOAD_RETRIES: "3"
+      RUN_TIMEOUT_SECONDS: "55"
+      CANDLE_SETTLE_DELAY_SECONDS: "5"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  scanner_binance:
+    build:
+      context: ./scanners/market-data
+      dockerfile: Dockerfile
+    container_name: crypto_scanner_binance
+    logging: *default-logging
+    environment:
+      EXCHANGE: "binance"
+      MARKET_TYPE: "perpetual"
+      BINANCE_FUTURES_BASE_URL: "https://fapi.binance.com"
+      BINANCE_FUTURES_WS_URL: "wss://fstream.binance.com/market/stream"
+      LIQ_DEBUG: "${LIQ_DEBUG:-0}"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      COMPACT_REDIS_STREAM: "candles:v3:binance:perpetual"
+      COMPACT_RETENTION_HOURS: "${COMPACT_RETENTION_HOURS:-26}"
+      SYMBOLS_MODE: "api"
+      SHARD_TOTAL: "2"
+      SHARD_INDEX: "0"
+      PUBLISHER: "redis"
+      WORKERS: "16"
+      RPS: "15"
+      BURST: "5"
+      TRADE_LIMIT: "1000"
+      OI_INTERVAL: "5min"
+      FUNDING_INTERVAL_HOURS: "8"
+      ORDERBOOK_ENABLED: "0"
+      HTTP_TIMEOUT_SECONDS: "15"
+      SYMBOLS_LOAD_TIMEOUT_SECONDS: "40"
+      SYMBOLS_LOAD_RETRIES: "3"
+      RUN_TIMEOUT_SECONDS: "55"
+      CANDLE_SETTLE_DELAY_SECONDS: "5"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  scanner_binance_shard1:
+    build:
+      context: ./scanners/market-data
+      dockerfile: Dockerfile
+    container_name: crypto_scanner_binance_shard1
+    logging: *default-logging
+    environment:
+      EXCHANGE: "binance"
+      MARKET_TYPE: "perpetual"
+      BINANCE_FUTURES_BASE_URL: "https://fapi.binance.com"
+      BINANCE_FUTURES_WS_URL: "wss://fstream.binance.com/market/stream"
+      LIQ_DEBUG: "${LIQ_DEBUG:-0}"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      COMPACT_REDIS_STREAM: "candles:v3:binance:perpetual"
+      COMPACT_RETENTION_HOURS: "${COMPACT_RETENTION_HOURS:-26}"
+      SYMBOLS_MODE: "api"
+      SHARD_TOTAL: "2"
+      SHARD_INDEX: "1"
+      PUBLISHER: "redis"
+      WORKERS: "16"
+      RPS: "15"
+      BURST: "5"
+      TRADE_LIMIT: "1000"
+      OI_INTERVAL: "5min"
+      FUNDING_INTERVAL_HOURS: "8"
+      ORDERBOOK_ENABLED: "0"
+      HTTP_TIMEOUT_SECONDS: "15"
+      SYMBOLS_LOAD_TIMEOUT_SECONDS: "40"
+      SYMBOLS_LOAD_RETRIES: "3"
+      RUN_TIMEOUT_SECONDS: "55"
+      CANDLE_SETTLE_DELAY_SECONDS: "5"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  scanner_okx_liquidations:
+    build:
+      context: ./scanners/market-data
+      dockerfile: Dockerfile
+    container_name: crypto_scanner_okx_liquidations
+    logging: *default-logging
+    environment:
+      EXCHANGE: "okx"
+      MARKET_TYPE: "perpetual"
+      OKX_BASE_URL: "https://www.okx.com"
+      OKX_PUBLIC_WS_URL: "wss://ws.okx.com:8443/ws/v5/public"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      COMPACT_REDIS_STREAM: "liquidations:v3:okx:perpetual"
+      COMPACT_RETENTION_HOURS: "${COMPACT_RETENTION_HOURS:-26}"
+      PUBLISHER: "redis"
+      HTTP_TIMEOUT_SECONDS: "15"
+      SYMBOLS_LOAD_RETRIES: "3"
+      CANDLE_SETTLE_DELAY_SECONDS: "5"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  scanner_bitget_liquidations:
+    build:
+      context: ./scanners/market-data
+      dockerfile: Dockerfile
+    container_name: crypto_scanner_bitget_liquidations
+    logging: *default-logging
+    environment:
+      EXCHANGE: "bitget"
+      MARKET_TYPE: "perpetual"
+      BITGET_BASE_URL: "https://api.bitget.com"
+      BITGET_PUBLIC_WS_URL: "wss://ws.bitget.com/v3/ws/public"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      COMPACT_REDIS_STREAM: "liquidations:v3:bitget:perpetual"
+      COMPACT_RETENTION_HOURS: "${COMPACT_RETENTION_HOURS:-26}"
+      PUBLISHER: "redis"
+      HTTP_TIMEOUT_SECONDS: "15"
+      SYMBOLS_LOAD_RETRIES: "3"
+      CANDLE_SETTLE_DELAY_SECONDS: "5"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  scanner_gateio_liquidations:
+    build:
+      context: ./scanners/market-data
+      dockerfile: Dockerfile
+    container_name: crypto_scanner_gateio_liquidations
+    logging: *default-logging
+    environment:
+      EXCHANGE: "gateio"
+      MARKET_TYPE: "perpetual"
+      GATEIO_BASE_URL: "https://api.gateio.ws"
+      GATEIO_FUTURES_WS_URL: "wss://fx-ws.gateio.ws/v4/ws/usdt"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      COMPACT_REDIS_STREAM: "liquidations:v3:gateio:perpetual"
+      COMPACT_RETENTION_HOURS: "${COMPACT_RETENTION_HOURS:-26}"
+      PUBLISHER: "redis"
+      HTTP_TIMEOUT_SECONDS: "15"
+      SYMBOLS_LOAD_RETRIES: "3"
+      CANDLE_SETTLE_DELAY_SECONDS: "5"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./workers/alert-engine
+      dockerfile: Dockerfile
+    container_name: crypto_worker
+    logging: *default-logging
+    environment:
+      PG_DSN: "postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/alerts?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      MARKET_STREAMS: "candles:v3:bybit:perpetual,candles:v3:binance:perpetual,liquidations:v3:okx:perpetual,liquidations:v3:bitget:perpetual,liquidations:v3:gateio:perpetual"
+      MARKET_CONSUMER_GROUP: "alert-engine-slot1"
+      RULES_SLOT_FILTER: "SLOT_1"
+      LOG_LEVEL: "info"
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}"
+      ALERTS_STREAM_MAXLEN: "50000"
+      IMPORTANT_EVENTS_ENABLED: "1"
+      STREAM_READ_COUNT: "${STREAM_READ_COUNT:-10}"
+      SPARSE_MAX_INSTRUMENTS: "${SPARSE_MAX_INSTRUMENTS:-20000}"
+      SPARSE_SNAPSHOT_PATH: "/app/state/slot1.snapshot"
+      SPARSE_SNAPSHOT_EVERY_SECONDS: "${SPARSE_SNAPSHOT_EVERY_SECONDS:-300}"
+      STREAM_MAX_DELIVERIES: "${STREAM_MAX_DELIVERIES:-5}"
+      STREAM_DLQ_MAXLEN: "${STREAM_DLQ_MAXLEN:-10000}"
+      STREAM_DLQ_RAW_MAX_BYTES: "${STREAM_DLQ_RAW_MAX_BYTES:-65536}"
+      STREAM_DLQ_ERROR_MAX_BYTES: "${STREAM_DLQ_ERROR_MAX_BYTES:-2048}"
+      ONCHAIN_ENABLED: "${ONCHAIN_ENABLED:-0}"
+      ONCHAIN_MONITOR_ENABLED: "${ONCHAIN_MONITOR_ENABLED:-}"
+      ONCHAIN_MIN_USD: "${ONCHAIN_MIN_USD:-1000000}"
+      ETHERSCAN_API_KEY: "${ETHERSCAN_API_KEY:-}"
+      ETHERSCAN_CHAIN_ID: "${ETHERSCAN_CHAIN_ID:-1}"
+      ONCHAIN_BTC_ENABLED: "${ONCHAIN_BTC_ENABLED:-0}"
+      BITCOIN_API_URL: "${BITCOIN_API_URL:-https://blockstream.info/api}"
+      ONCHAIN_SOLANA_ENABLED: "${ONCHAIN_SOLANA_ENABLED:-0}"
+      SOLANA_RPC_URL: "${SOLANA_RPC_URL:-https://api.mainnet-beta.solana.com}"
+      ONCHAIN_TRON_ENABLED: "${ONCHAIN_TRON_ENABLED:-0}"
+      TRONGRID_BASE_URL: "${TRONGRID_BASE_URL:-https://api.trongrid.io}"
+      TRONGRID_API_KEY: "${TRONGRID_API_KEY:-}"
+      ONCHAIN_INTERVAL_SECONDS: "${ONCHAIN_INTERVAL_SECONDS:-60}"
+      ONCHAIN_MAX_ADDRESSES: "${ONCHAIN_MAX_ADDRESSES:-500}"
+      BINANCE_SPOT_BASE_URL: "https://api.binance.com"
+      BYBIT_BASE_URL: "https://api.bybit.com"
+      STABLECOIN_WARNING_PCT: "0.5"
+      STABLECOIN_HIGH_PCT: "1.0"
+      STABLECOIN_CRITICAL_PCT: "2.0"
+      STABLECOIN_WARNING_MINUTES: "3"
+      STABLECOIN_HIGH_MINUTES: "2"
+      STABLECOIN_RECOVERY_MINUTES: "2"
+      STABLECOIN_MIN_VOLUME_USD: "1000000"
+    volumes:
+      - worker_state:/app/state
+      # если воркер читает streams / keys — добавишь нужные ENV
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker_slot2:
+    build:
+      context: ./workers/alert-engine
+      dockerfile: Dockerfile
+    container_name: crypto_worker_slot2
+    logging: *default-logging
+    environment:
+      PG_DSN: "postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/alerts?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      MARKET_STREAMS: "candles:v3:bybit:perpetual,candles:v3:binance:perpetual,liquidations:v3:okx:perpetual,liquidations:v3:bitget:perpetual,liquidations:v3:gateio:perpetual"
+      MARKET_CONSUMER_GROUP: "alert-engine-slot2"
+      RULES_SLOT_FILTER: "SLOT_2"
+      CONSUMER_NAME: "worker-slot2"
+      LOG_LEVEL: "info"
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}"
+      ALERTS_STREAM_MAXLEN: "50000"
+      STREAM_READ_COUNT: "${STREAM_READ_COUNT:-10}"
+      SPARSE_MAX_INSTRUMENTS: "${SPARSE_MAX_INSTRUMENTS:-20000}"
+      SPARSE_SNAPSHOT_PATH: "/app/state/slot2.snapshot"
+      SPARSE_SNAPSHOT_EVERY_SECONDS: "${SPARSE_SNAPSHOT_EVERY_SECONDS:-300}"
+      STREAM_MAX_DELIVERIES: "${STREAM_MAX_DELIVERIES:-5}"
+      STREAM_DLQ_MAXLEN: "${STREAM_DLQ_MAXLEN:-10000}"
+      STREAM_DLQ_RAW_MAX_BYTES: "${STREAM_DLQ_RAW_MAX_BYTES:-65536}"
+      STREAM_DLQ_ERROR_MAX_BYTES: "${STREAM_DLQ_ERROR_MAX_BYTES:-2048}"
+    volumes:
+      - worker_state:/app/state
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker_slot3:
+    build:
+      context: ./workers/alert-engine
+      dockerfile: Dockerfile
+    container_name: crypto_worker_slot3
+    logging: *default-logging
+    environment:
+      PG_DSN: "postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/alerts?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
+      MARKET_STREAMS: "candles:v3:bybit:perpetual,candles:v3:binance:perpetual,liquidations:v3:okx:perpetual,liquidations:v3:bitget:perpetual,liquidations:v3:gateio:perpetual"
+      MARKET_CONSUMER_GROUP: "alert-engine-slot3"
+      RULES_SLOT_FILTER: "SLOT_3"
+      CONSUMER_NAME: "worker-slot3"
+      LOG_LEVEL: "info"
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}"
+      ALERTS_STREAM_MAXLEN: "50000"
+      STREAM_READ_COUNT: "${STREAM_READ_COUNT:-10}"
+      SPARSE_MAX_INSTRUMENTS: "${SPARSE_MAX_INSTRUMENTS:-20000}"
+      SPARSE_SNAPSHOT_PATH: "/app/state/slot3.snapshot"
+      SPARSE_SNAPSHOT_EVERY_SECONDS: "${SPARSE_SNAPSHOT_EVERY_SECONDS:-300}"
+      STREAM_MAX_DELIVERIES: "${STREAM_MAX_DELIVERIES:-5}"
+      STREAM_DLQ_MAXLEN: "${STREAM_DLQ_MAXLEN:-10000}"
+      STREAM_DLQ_RAW_MAX_BYTES: "${STREAM_DLQ_RAW_MAX_BYTES:-65536}"
+      STREAM_DLQ_ERROR_MAX_BYTES: "${STREAM_DLQ_ERROR_MAX_BYTES:-2048}"
+    volumes:
+      - worker_state:/app/state
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  news_bot:
+    build:
+      context: ./news/collector
+      dockerfile: Dockerfile
+    container_name: crypto_news_bot
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      PG_DSN: "postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/alerts?sslmode=disable"
+      NEWS_SOURCE_INTERVAL_MINUTES: "${NEWS_SOURCE_INTERVAL_MINUTES:-1}"
+      NEWS_SOURCE_STAGGER_MINUTES: "${NEWS_SOURCE_STAGGER_MINUTES:-1}"
+      NEWS_DEDUP_WINDOW_HOURS: "${NEWS_DEDUP_WINDOW_HOURS:-72}"
+      CRYPTOPANIC_API_TOKEN: "${CRYPTOPANIC_API_TOKEN:-}"
+      COINTELEGRAPH_ENABLED: "${COINTELEGRAPH_ENABLED:-1}"
+      COINTELEGRAPH_RSS_URL: "${COINTELEGRAPH_RSS_URL:-https://cointelegraph.com/rss}"
+      COINDESK_RSS_URL: "${COINDESK_RSS_URL:-https://www.coindesk.com/arc/outboundfeeds/rss/}"
+      DECRYPT_RSS_URL: "${DECRYPT_RSS_URL:-https://decrypt.co/feed}"
+      BYBIT_ANNOUNCEMENTS_ENABLED: "${BYBIT_ANNOUNCEMENTS_ENABLED:-1}"
+      BYBIT_ANNOUNCEMENTS_API_URL: "${BYBIT_ANNOUNCEMENTS_API_URL:-https://api.bybit.com/v5/announcements/index?locale=en-US&limit=20}"
+      SEC_RSS_ENABLED: "${SEC_RSS_ENABLED:-1}"
+      SEC_EDGAR_ENABLED: "${SEC_EDGAR_ENABLED:-1}"
+      SEC_COMPANY_CIKS: "${SEC_COMPANY_CIKS:-1679788,1050446,1876042,1783879}"
+      FEDERAL_RESERVE_ENABLED: "${FEDERAL_RESERVE_ENABLED:-1}"
+      WHITE_HOUSE_ENABLED: "${WHITE_HOUSE_ENABLED:-1}"
+      WHITE_HOUSE_RSS_URL: "${WHITE_HOUSE_RSS_URL:-https://www.whitehouse.gov/briefing-room/feed/}"
+      FEDERAL_REGISTER_ENABLED: "${FEDERAL_REGISTER_ENABLED:-1}"
+      FEDERAL_REGISTER_API_URL: "${FEDERAL_REGISTER_API_URL:-https://www.federalregister.gov/api/v1/documents.json?per_page=20&order=newest&conditions%5Bpresidential_document_type%5D%5B%5D=executive_order}"
+      UPBIT_ENABLED: "${UPBIT_ENABLED:-1}"
+      BITHUMB_ENABLED: "${BITHUMB_ENABLED:-1}"
+      SOSOVALUE_API_KEY: "${SOSOVALUE_API_KEY:-}"
+      SOSOVALUE_ETF_ENABLED: "${SOSOVALUE_ETF_ENABLED:-0}"
+      SOSOVALUE_ETF_INTERVAL: "${SOSOVALUE_ETF_INTERVAL:-30m}"
+      FEAR_GREED_ENABLED: "${FEAR_GREED_ENABLED:-1}"
+      FEAR_GREED_INTERVAL: "${FEAR_GREED_INTERVAL:-1h}"
+      DEFILLAMA_ENABLED: "${DEFILLAMA_ENABLED:-0}"
+      TIMEWEB_API_KEY: "${TIMEWEB_API_KEY:-}"
+      TIMEWEB_AGENT_ACCESS_ID: "${TIMEWEB_AGENT_ACCESS_ID:-}"
+      TIMEWEB_SUMMARY_AGENT_ACCESS_ID: "${TIMEWEB_SUMMARY_AGENT_ACCESS_ID:-}"
+      TIMEWEB_BASE_URL: "${TIMEWEB_BASE_URL:-https://agent.timeweb.cloud}"
+    depends_on:
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+  telegram_news_publisher:
+    build:
+      context: ./telegram/news-publisher
+      dockerfile: Dockerfile
+    container_name: telegram_news_publisher
+    logging: *default-logging
+    env_file:
+      - ./telegram/news-publisher/.env
+    environment:
+      PG_DSN: "postgres://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/alerts?sslmode=disable"
+      NEWS_PUBLISH_CATEGORIES: "${NEWS_PUBLISH_CATEGORIES:-crypto,macro}"
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Private, opt-in infrastructure bot. It receives read-only commands from
+  # explicitly linked Telegram chats; never expose this profile by default.
+  telegram_admin_bot:
+    build:
+      context: ./telegram/admin-bot
+      dockerfile: Dockerfile
+    container_name: crypto_telegram_admin_bot
+    profiles: ["telegram-admin"]
+    logging: *default-logging
+    environment:
+      ADMIN_BOT_TOKEN: "${ADMIN_BOT_TOKEN:-}"
+      ADMIN_BOT_BOOTSTRAP_SECRET: "${ADMIN_BOT_BOOTSTRAP_SECRET:-}"
+      ADMIN_BOT_ALLOWED_CHAT_IDS: "${ADMIN_BOT_ALLOWED_CHAT_IDS:-}"
+      ADMIN_BOT_HOST_ROOT: "/host"
+      ADMIN_BOT_HEALTH_REPORT: "/reports/server-health-latest.log"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host:ro
+      - /opt/shortlong/reports:/reports:ro
+      - telegram_admin_state:/state
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    user: "0:0"
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/telegram-admin-bot", "-healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      market_history:
+        condition: service_healthy
+
+volumes:
+  similarity_vectors:
+  backtest_candles:
+  pgdata:
+  redisdata:
+  marketcache:
+  worker_state:
+  telegram_admin_state:
+
+
+
+
+

@@ -1,0 +1,162 @@
+{
+  "body": "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+  "header": [
+    {
+      "background": "oklab(0 0 0 / 0.2) none repeat scroll 0% 0% / auto padding-box border-box",
+      "font": "ui-sans-serif, system-ui, sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+      "height": 71
+    }
+  ],
+  "surfaces": [
+    {
+      "text": "",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(to right top, oklab(0.905 -0.0894641 0.0254001 / 0.7) 0%, oklab(0.938 -0.0716063 0.104888 / 0.45) 50%, oklab(0.917 -0.0724804 -0.0338613 / 0.3) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "50%"
+    },
+    {
+      "text": "",
+      "background": "oklab(0.925 -0.0767348 0.0341726 / 0.55) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "52%"
+    },
+    {
+      "text": "",
+      "background": "rgba(0, 0, 0, 0) linear-gradient(to right top, oklab(0.938 -0.0716063 0.104888 / 0.55) 0%, oklab(0.905 -0.0894641 0.0254001 / 0.45) 50%, oklab(0.917 -0.0724804 -0.0338613 / 0.35) 100%) repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "3.35544e+07px"
+    },
+    {
+      "text": "",
+      "background": "oklab(0.905 -0.0894641 0.0254001 / 0.55) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "48%"
+    },
+    {
+      "text": "",
+      "background": "oklab(0.938 -0.0716063 0.104888 / 0.55) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "52%"
+    },
+    {
+      "text": "",
+      "background": "oklab(0.925 -0.0767348 0.0341726 / 0.5) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "46%"
+    },
+    {
+      "text": "",
+      "background": "oklab(0.905 -0.0894641 0.0254001 / 0.5) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "50%"
+    },
+    {
+      "text": "",
+      "background": "oklab(0.938 -0.0716063 0.104888 / 0.4) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "55%"
+    },
+    {
+      "text": "",
+      "background": "oklab(0.95 -0.0497414 0.0151591 / 0.45) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "60%"
+    },
+    {
+      "text": "",
+      "background": "oklab(0.962 -0.0404247 0.0173737 / 0.4) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "58%"
+    },
+    {
+      "text": "",
+      "background": "oklab(0.967 -0.0358293 0.056615 / 0.4) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "58%"
+    },
+    {
+      "text": "Сканер 1Сканер 2Сканер 3",
+      "background": "oklab(0 0 0 / 0.9) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "oklab(0.999994 0.0000455678 0.0000200868 / 0.1)",
+      "radius": "12px"
+    },
+    {
+      "text": "Сканер 1",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+      "radius": "8px"
+    },
+    {
+      "text": "Сканер 2",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+      "radius": "8px"
+    },
+    {
+      "text": "Сканер 3",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+      "radius": "8px"
+    },
+    {
+      "text": "КаналыЛента",
+      "background": "oklab(0 0 0 / 0.9) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "oklab(0.999994 0.0000455678 0.0000200868 / 0.1)",
+      "radius": "12px"
+    },
+    {
+      "text": "Каналы",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+      "radius": "8px"
+    },
+    {
+      "text": "Лента",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "oklab(0.999994 0.0000455677 0.0000200868 / 0.8)",
+      "radius": "8px"
+    },
+    {
+      "text": "Меню",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "oklab(0.999994 0.0000455678 0.0000200868 / 0.15)",
+      "radius": "8px"
+    },
+    {
+      "text": "ГлавнаяСканерыТест стратегииБэктестНовостиКом",
+      "background": "rgb(21, 36, 27) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "oklab(0.999994 0.0000455678 0.0000200868 / 0.15)",
+      "radius": "12px"
+    },
+    {
+      "text": "Главная",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "8px"
+    },
+    {
+      "text": "Сканеры",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "8px"
+    },
+    {
+      "text": "Тест стратегии",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "8px"
+    },
+    {
+      "text": "Бэктест",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "8px"
+    },
+    {
+      "text": "Новости",
+      "background": "rgba(0, 0, 0, 0) none repeat scroll 0% 0% / auto padding-box border-box",
+      "border": "rgb(255, 255, 255)",
+      "radius": "8px"
+    }
+  ]
+}

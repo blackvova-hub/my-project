@@ -1,0 +1,608 @@
+{
+  "checks": [
+    "all real-history engine measures, Spot CVD, 4h OI+CVD, Short exit, UI cancellation, API restrictions, no browser exceptions"
+  ],
+  "jobs": [
+    {
+      "id": "fd174633-18a6-4dab-8668-426e24b57f99",
+      "label": "price/change_pct",
+      "seconds": 1.559,
+      "profitPct": 0,
+      "maxDrawdownPct": 0,
+      "winRate": 0,
+      "tradeCount": 0,
+      "profitFactor": null,
+      "sharpe": null,
+      "finalCapital": 10000,
+      "totalFees": 0,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 0
+        }
+      ]
+    },
+    {
+      "id": "e9f5ceec-feaf-4641-a64b-007ea326aa9b",
+      "label": "volume/change_pct",
+      "seconds": 3.052,
+      "profitPct": 0.04718877106164587,
+      "maxDrawdownPct": 0.49875674853962254,
+      "winRate": 63.63636363636363,
+      "tradeCount": 11,
+      "profitFactor": 1.0470890006812659,
+      "sharpe": 2.8310757197539806,
+      "finalCapital": 10004.718877106165,
+      "totalFees": 44.138375643874134,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 34
+        }
+      ]
+    },
+    {
+      "id": "4cdc9297-4985-436f-b46e-c933043259fe",
+      "label": "volume/relative",
+      "seconds": 1.536,
+      "profitPct": -0.4987567485396305,
+      "maxDrawdownPct": 0.49875674853963575,
+      "winRate": 0,
+      "tradeCount": 2,
+      "profitFactor": 0,
+      "sharpe": -11.030261405182863,
+      "finalCapital": 9950.124325146036,
+      "totalFees": 7.948084805951989,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 5
+        }
+      ]
+    },
+    {
+      "id": "09d02187-ab17-4021-a3cd-32ce4ed8e1a2",
+      "label": "volume/sum",
+      "seconds": 1.525,
+      "profitPct": -0.1535128065979552,
+      "maxDrawdownPct": 0.5758740998800134,
+      "winRate": 60,
+      "tradeCount": 15,
+      "profitFactor": 0.8976316414729186,
+      "sharpe": -7.064433872981763,
+      "finalCapital": 9984.648719340204,
+      "totalFees": 60.03373674312533,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 71
+        }
+      ]
+    },
+    {
+      "id": "60bdc64c-3d8e-42f4-8877-cfa41657a8fc",
+      "label": "openInterest/change_pct",
+      "seconds": 3.052,
+      "profitPct": 0,
+      "maxDrawdownPct": 0,
+      "winRate": 0,
+      "tradeCount": 0,
+      "profitFactor": null,
+      "sharpe": null,
+      "finalCapital": 10000,
+      "totalFees": 0,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 0
+        }
+      ]
+    },
+    {
+      "id": "7b7f2bd8-6683-4a4d-90fe-d057239dc433",
+      "label": "cvd/sum",
+      "seconds": 1.526,
+      "profitPct": -1.045713631835099,
+      "maxDrawdownPct": 1.101468310436393,
+      "winRate": 33.333333333333336,
+      "tradeCount": 9,
+      "profitFactor": 0.2990180525808279,
+      "sharpe": -60.54046971946838,
+      "finalCapital": 9895.42863681649,
+      "totalFees": 35.74758688546963,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 21
+        }
+      ]
+    },
+    {
+      "id": "c4af25f3-82a4-4a60-8c03-453f4a72c082",
+      "label": "cvd/imbalance_pct",
+      "seconds": 1.533,
+      "profitPct": -1.045713631835099,
+      "maxDrawdownPct": 1.101468310436393,
+      "winRate": 33.333333333333336,
+      "tradeCount": 9,
+      "profitFactor": 0.2990180525808279,
+      "sharpe": -60.54046971946838,
+      "finalCapital": 9895.42863681649,
+      "totalFees": 35.74758688546963,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 21
+        }
+      ]
+    },
+    {
+      "id": "d07639c2-e4af-45dc-8b55-816660dd8a35",
+      "label": "delta/sum",
+      "seconds": 1.519,
+      "profitPct": -1.045713631835099,
+      "maxDrawdownPct": 1.101468310436393,
+      "winRate": 33.333333333333336,
+      "tradeCount": 9,
+      "profitFactor": 0.2990180525808279,
+      "sharpe": -60.54046971946838,
+      "finalCapital": 9895.42863681649,
+      "totalFees": 35.74758688546963,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 21
+        }
+      ]
+    },
+    {
+      "id": "7ee84534-d034-447b-a40a-f53dd743c48e",
+      "label": "delta/imbalance_pct",
+      "seconds": 3.04,
+      "profitPct": -1.045713631835099,
+      "maxDrawdownPct": 1.101468310436393,
+      "winRate": 33.333333333333336,
+      "tradeCount": 9,
+      "profitFactor": 0.2990180525808279,
+      "sharpe": -60.54046971946838,
+      "finalCapital": 9895.42863681649,
+      "totalFees": 35.74758688546963,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 21
+        }
+      ]
+    },
+    {
+      "id": "cf554355-cd16-47f2-b975-ed98058f3535",
+      "label": "tradeBuyVolume/change_pct",
+      "seconds": 1.533,
+      "profitPct": 0.04718877106164587,
+      "maxDrawdownPct": 0.49875674853962254,
+      "winRate": 63.63636363636363,
+      "tradeCount": 11,
+      "profitFactor": 1.0470890006812659,
+      "sharpe": 2.8310757197539806,
+      "finalCapital": 10004.718877106165,
+      "totalFees": 44.138375643874134,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 36
+        }
+      ]
+    },
+    {
+      "id": "095fd635-9edd-4c80-83b9-0bbf3ed71fcc",
+      "label": "tradeBuyVolume/sum",
+      "seconds": 1.529,
+      "profitPct": -0.1535128065979552,
+      "maxDrawdownPct": 0.5758740998800134,
+      "winRate": 60,
+      "tradeCount": 15,
+      "profitFactor": 0.8976316414729186,
+      "sharpe": -7.064433872981763,
+      "finalCapital": 9984.648719340204,
+      "totalFees": 60.03373674312533,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 71
+        }
+      ]
+    },
+    {
+      "id": "314eda0a-ae49-4fde-9dad-9af6e8bce1fe",
+      "label": "tradeSellVolume/change_pct",
+      "seconds": 3.051,
+      "profitPct": 0.04718877106164587,
+      "maxDrawdownPct": 0.49875674853962254,
+      "winRate": 63.63636363636363,
+      "tradeCount": 11,
+      "profitFactor": 1.0470890006812659,
+      "sharpe": 2.8310757197539806,
+      "finalCapital": 10004.718877106165,
+      "totalFees": 44.138375643874134,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 34
+        }
+      ]
+    },
+    {
+      "id": "f8eb584e-c6fb-48e2-8f65-74ec8cd39590",
+      "label": "tradeSellVolume/sum",
+      "seconds": 1.521,
+      "profitPct": -0.1535128065979552,
+      "maxDrawdownPct": 0.5758740998800134,
+      "winRate": 60,
+      "tradeCount": 15,
+      "profitFactor": 0.8976316414729186,
+      "sharpe": -7.064433872981763,
+      "finalCapital": 9984.648719340204,
+      "totalFees": 60.03373674312533,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 71
+        }
+      ]
+    },
+    {
+      "id": "b0bf3f4d-954a-4e2b-8881-5f4f8558fd26",
+      "label": "rsi/value",
+      "seconds": 1.53,
+      "profitPct": 0,
+      "maxDrawdownPct": 0,
+      "winRate": 0,
+      "tradeCount": 0,
+      "profitFactor": null,
+      "sharpe": null,
+      "finalCapital": 10000,
+      "totalFees": 0,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 0
+        }
+      ]
+    },
+    {
+      "id": "a3323830-5b50-4b2f-8b0a-1257b306b944",
+      "label": "rsi/change",
+      "seconds": 3.029,
+      "profitPct": -0.8488046801246818,
+      "maxDrawdownPct": 1.0222048261011782,
+      "winRate": 46.15384615384615,
+      "tradeCount": 13,
+      "profitFactor": 0.5127991258617786,
+      "sharpe": -25.32202491235325,
+      "finalCapital": 9915.119531987531,
+      "totalFees": 51.74696243518326,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 46
+        }
+      ]
+    },
+    {
+      "id": "94c427df-e47b-403a-8b36-7597847ec793",
+      "label": "macd/histogram",
+      "seconds": 1.536,
+      "profitPct": -0.7003653264600729,
+      "maxDrawdownPct": 0.8847142491387731,
+      "winRate": 50,
+      "tradeCount": 14,
+      "profitFactor": 0.598258339903485,
+      "sharpe": -13.956422074710877,
+      "finalCapital": 9929.963467353993,
+      "totalFees": 55.779574841680045,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 46
+        }
+      ]
+    },
+    {
+      "id": "58211065-f6d3-41b0-b52a-57f855aaabbe",
+      "label": "macd/line",
+      "seconds": 1.532,
+      "profitPct": -0.6495007097306771,
+      "maxDrawdownPct": 0.6843020275682409,
+      "winRate": 44.44444444444444,
+      "tradeCount": 9,
+      "profitFactor": 0.4785533372362484,
+      "sharpe": -73.11677076496774,
+      "finalCapital": 9935.049929026933,
+      "totalFees": 35.85091217228528,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 32
+        }
+      ]
+    },
+    {
+      "id": "e742c7c8-770f-4ac1-8ff3-ec253ea0a02a",
+      "label": "macd/signal_cross",
+      "seconds": 3.042,
+      "profitPct": -0.2006069137223898,
+      "maxDrawdownPct": 0.5189979463807344,
+      "winRate": 50,
+      "tradeCount": 4,
+      "profitFactor": 0.5983873211777426,
+      "sharpe": -3.390665602953466,
+      "finalCapital": 9979.939308627761,
+      "totalFees": 15.98390573239756,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 4
+        }
+      ]
+    },
+    {
+      "id": "3375b2d8-a460-4238-9074-3e9581992f46",
+      "label": "ema/distance_pct",
+      "seconds": 1.53,
+      "profitPct": -0.6006142544572102,
+      "maxDrawdownPct": 0.7839691157011415,
+      "winRate": 50,
+      "tradeCount": 12,
+      "profitFactor": 0.5984871280285096,
+      "sharpe": -29.080335662637374,
+      "finalCapital": 9939.938574554279,
+      "totalFees": 47.87149080845439,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 46
+        }
+      ]
+    },
+    {
+      "id": "4ad270c8-0569-49d1-bb25-1e93bb1bb26b",
+      "label": "sma/distance_pct",
+      "seconds": 1.525,
+      "profitPct": -0.6006142544572102,
+      "maxDrawdownPct": 0.7839691157011415,
+      "winRate": 50,
+      "tradeCount": 12,
+      "profitFactor": 0.5984871280285085,
+      "sharpe": -29.080335662637374,
+      "finalCapital": 9939.938574554279,
+      "totalFees": 47.87149080845439,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 46
+        }
+      ]
+    },
+    {
+      "id": "f128d452-599b-4ca3-8473-d300ea95b3e5",
+      "label": "atr/value",
+      "seconds": 3.053,
+      "profitPct": -0.1535128065979552,
+      "maxDrawdownPct": 0.5758740998800134,
+      "winRate": 60,
+      "tradeCount": 15,
+      "profitFactor": 0.8976316414729186,
+      "sharpe": -7.064433872981763,
+      "finalCapital": 9984.648719340204,
+      "totalFees": 60.03373674312533,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 71
+        }
+      ]
+    },
+    {
+      "id": "1e70aef3-251b-44fc-a623-e6c791530f5b",
+      "label": "stochastic/value",
+      "seconds": 1.523,
+      "profitPct": 0.19898981533537086,
+      "maxDrawdownPct": 0.38495353396371984,
+      "winRate": 75,
+      "tradeCount": 4,
+      "profitFactor": 1.7969471570374123,
+      "sharpe": 7.535407393998004,
+      "finalCapital": 10019.898981533537,
+      "totalFees": 16.02388935639441,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 14
+        }
+      ]
+    },
+    {
+      "id": "d611b47c-c288-4a4e-b44f-986a4d2a07a2",
+      "label": "mfi/value",
+      "seconds": 1.522,
+      "profitPct": -0.10035381129841481,
+      "maxDrawdownPct": 0.42361524381686594,
+      "winRate": 50,
+      "tradeCount": 2,
+      "profitFactor": 0.5980865428849628,
+      "sharpe": -11.19651992903934,
+      "finalCapital": 9989.964618870159,
+      "totalFees": 7.987964979850009,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 11
+        }
+      ]
+    },
+    {
+      "id": "297b5a9a-5757-4994-b190-8ec4a7631d40",
+      "label": "obv/imbalance_pct",
+      "seconds": 1.526,
+      "profitPct": -0.10236807359300659,
+      "maxDrawdownPct": 0.4987567485396127,
+      "winRate": 60,
+      "tradeCount": 10,
+      "profitFactor": 0.8977336346942338,
+      "sharpe": -11.36430574343956,
+      "finalCapital": 9989.7631926407,
+      "totalFees": 40.07540465712574,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 32
+        }
+      ]
+    },
+    {
+      "id": "ee7e00e0-b6cd-4c2c-b6ac-d406124632cf",
+      "label": "bollinger/position",
+      "seconds": 3.041,
+      "profitPct": -0.1535128065979885,
+      "maxDrawdownPct": 0.5070146924192432,
+      "winRate": 60,
+      "tradeCount": 15,
+      "profitFactor": 0.8976316414729176,
+      "sharpe": -5.631970981625896,
+      "finalCapital": 9984.6487193402,
+      "totalFees": 60.033736743125324,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 65
+        }
+      ]
+    },
+    {
+      "id": "df89a625-45bb-4cbe-92ba-f4fdc119dc25",
+      "label": "bollinger/width",
+      "seconds": 1.524,
+      "profitPct": -0.1535128065979552,
+      "maxDrawdownPct": 0.5758740998800134,
+      "winRate": 60,
+      "tradeCount": 15,
+      "profitFactor": 0.8976316414729186,
+      "sharpe": -7.064433872981763,
+      "finalCapital": 9984.648719340204,
+      "totalFees": 60.03373674312533,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 71
+        }
+      ]
+    },
+    {
+      "id": "09c9dc9d-b522-408d-a2bf-f2ff741ca926",
+      "label": "volatility/value",
+      "seconds": 1.536,
+      "profitPct": -0.1535128065979552,
+      "maxDrawdownPct": 0.5758740998800134,
+      "winRate": 60,
+      "tradeCount": 15,
+      "profitFactor": 0.8976316414729186,
+      "sharpe": -7.064433872981763,
+      "finalCapital": 9984.648719340204,
+      "totalFees": 60.03373674312533,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 71
+        }
+      ]
+    },
+    {
+      "id": "cd28a894-b7f8-46d0-bed5-7dc0228ea6ba",
+      "label": "Spot real CVD",
+      "seconds": 3.033,
+      "profitPct": 0.09843631017321108,
+      "maxDrawdownPct": 0.41784449501661586,
+      "winRate": 66.66666666666667,
+      "tradeCount": 6,
+      "profitFactor": 1.197215923385939,
+      "sharpe": 2.1030771096083796,
+      "finalCapital": 10009.84363101732,
+      "totalFees": 23.995773752557042,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 13
+        }
+      ]
+    },
+    {
+      "id": "a31e7331-492a-4131-a4e7-e7058f8a0303",
+      "label": "4h OI + CVD",
+      "seconds": 1.526,
+      "profitPct": -0.5007629778927325,
+      "maxDrawdownPct": 0.5090207552686228,
+      "winRate": 50,
+      "tradeCount": 10,
+      "profitFactor": 0.5982065449378914,
+      "sharpe": -27.952852097510664,
+      "finalCapital": 9949.923702210726,
+      "totalFees": 39.87566276700223,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 17,
+          "matchedBars": 17
+        }
+      ]
+    },
+    {
+      "id": "58b219c6-f6b8-4288-b35f-c6b4235b95d8",
+      "label": "Short + indicator exit without TP",
+      "seconds": 1.532,
+      "profitPct": -2.016752785754272,
+      "maxDrawdownPct": 2.2837770216060016,
+      "winRate": 28.94736842105263,
+      "tradeCount": 38,
+      "profitFactor": 0.3525779040655935,
+      "sharpe": -43.05953414838959,
+      "finalCapital": 9798.324721424573,
+      "totalFees": 150.33820063565673,
+      "signals": [
+        {
+          "symbol": "ADAUSDT",
+          "evaluatedBars": 71,
+          "matchedBars": 71
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

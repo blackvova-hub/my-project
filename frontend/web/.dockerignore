@@ -1,0 +1,15 @@
+.env
+.env.*
+node_modules
+dist
+dist-ssr
+.git
+.gitignore
+.vscode
+.idea
+*.log
+*.local
+*.pem
+*.key
+*.crt
+docker-compose*.yml

@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-09-16T11:07:53.690Z",
+  "checks": [
+    "chart chunk failure keeps metrics/trades; reload restores chart",
+    "reset, invalid export, keyboard menu, draft restoration",
+    "reduced motion and mobile header navigation",
+    "zero signals and trades render without invalid metrics"
+  ],
+  "zeroJob": "3f857a38-19bd-4d45-aac5-196fc5391ff8"
+}

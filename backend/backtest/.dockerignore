@@ -1,0 +1,10 @@
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+certs
+*.exe
+*.log
+tmp

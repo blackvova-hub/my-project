@@ -1,0 +1,118 @@
+{
+  "checks": [
+    "market, 1h/4h, Spot restriction, pair search/add/remove/max5",
+    "all date presets",
+    "every indicator, group AND/OR, exit toggle, six Smart Money controls",
+    "JSON export/import, invalid JSON, old numeric-left and timeframe migration",
+    "real lt",
+    "real lte",
+    "real gt",
+    "real gte",
+    "real crosses_above",
+    "real crosses_below",
+    "real Smart Money BOS Long",
+    "real Smart Money FVG Short 4h",
+    "real results, CSV, chart, reload and history selection",
+    "desktop/mobile layout and shared navigation"
+  ],
+  "jobs": [
+    {
+      "name": "real lt",
+      "id": "b7eea7e5-81d2-4a8b-826d-decd18b6a519",
+      "trades": 93,
+      "signals": [
+        {
+          "symbol": "BTCUSDT",
+          "evaluatedBars": 719,
+          "matchedBars": 719
+        }
+      ]
+    },
+    {
+      "name": "real lte",
+      "id": "b510f4ca-351f-4692-bd84-39b08ff73f83",
+      "trades": 93,
+      "signals": [
+        {
+          "symbol": "BTCUSDT",
+          "evaluatedBars": 719,
+          "matchedBars": 719
+        }
+      ]
+    },
+    {
+      "name": "real gt",
+      "id": "7e972012-ace6-41d3-9007-fc111bdf2b83",
+      "trades": 93,
+      "signals": [
+        {
+          "symbol": "BTCUSDT",
+          "evaluatedBars": 719,
+          "matchedBars": 719
+        }
+      ]
+    },
+    {
+      "name": "real gte",
+      "id": "604798e3-ec0f-4168-a521-b7a758fbe0c8",
+      "trades": 93,
+      "signals": [
+        {
+          "symbol": "BTCUSDT",
+          "evaluatedBars": 719,
+          "matchedBars": 719
+        }
+      ]
+    },
+    {
+      "name": "real crosses_above",
+      "id": "ae65f3a0-2c45-4865-86e7-9594d486785b",
+      "trades": 6,
+      "signals": [
+        {
+          "symbol": "BTCUSDT",
+          "evaluatedBars": 719,
+          "matchedBars": 6
+        }
+      ]
+    },
+    {
+      "name": "real crosses_below",
+      "id": "56379149-79d7-4927-b3fa-80370682b035",
+      "trades": 6,
+      "signals": [
+        {
+          "symbol": "BTCUSDT",
+          "evaluatedBars": 719,
+          "matchedBars": 6
+        }
+      ]
+    },
+    {
+      "name": "real Smart Money BOS Long",
+      "id": "304f0fc1-c93a-4e24-b980-ef27d56cc5ec",
+      "trades": 14,
+      "signals": [
+        {
+          "symbol": "BTCUSDT",
+          "evaluatedBars": 719,
+          "matchedBars": 15
+        }
+      ]
+    },
+    {
+      "name": "real Smart Money FVG Short 4h",
+      "id": "552afc79-d466-495e-af22-903295aa4736",
+      "trades": 3,
+      "signals": [
+        {
+          "symbol": "BTCUSDT",
+          "evaluatedBars": 179,
+          "matchedBars": 6
+        }
+      ]
+    }
+  ],
+  "pageErrors": [],
+  "lastJob": "552afc79-d466-495e-af22-903295aa4736"
+}

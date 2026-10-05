@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE alerts
+  ADD COLUMN IF NOT EXISTS indicator TEXT NOT NULL DEFAULT 'price';
+
+COMMIT;
