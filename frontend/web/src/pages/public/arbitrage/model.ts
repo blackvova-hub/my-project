@@ -1,0 +1,249 @@
+export const exchanges = [
+  "binance",
+  "bybit",
+  "okx",
+  "bitget",
+  "gateio",
+  "kucoin",
+] as const;
+export const exchangeNames: Record<string, string> = {
+  binance: "Binance",
+  bybit: "Bybit",
+  okx: "OKX",
+  bitget: "Bitget",
+  gateio: "Gate.io",
+  kucoin: "KuCoin",
+};
+export type Settings = {
+  strategy: string;
+  amount: number;
+  minSpread: number;
+  maxAgeMs: number;
+  horizonHours: number;
+  exitSpread: number;
+  feeSpot?: number;
+  feePerpetual?: number;
+  exchanges: string[];
+  assets: string[];
+  interExchange: boolean;
+  sort: string;
+  limit: number;
+};
+export const defaults: Settings = {
+  strategy: "spot-perpetual",
+  amount: 1000,
+  minSpread: 0.1,
+  maxAgeMs: 10000,
+  horizonHours: 24,
+  exitSpread: 0,
+  exchanges: [...exchanges],
+  assets: [],
+  interExchange: true,
+  sort: "spread",
+  limit: 100,
+};
+export type Draft = Omit<
+  Settings,
+  "amount" | "minSpread" | "exitSpread" | "assets" | "feeSpot" | "feePerpetual"
+> & {
+  amount: string;
+  minSpread: string;
+  exitSpread: string;
+  assets: string;
+  feeSpot: string;
+  feePerpetual: string;
+  manualFees: boolean;
+};
+export function toDraft(s: Settings): Draft {
+  return {
+    ...s,
+    amount: String(s.amount),
+    minSpread: String(s.minSpread),
+    exitSpread: String(s.exitSpread),
+    assets: s.assets.join(", "),
+    feeSpot: String(s.feeSpot ?? 0.1),
+    feePerpetual: String(s.feePerpetual ?? 0.06),
+    manualFees: s.feeSpot !== undefined || s.feePerpetual !== undefined,
+  };
+}
+export function parseDraft(d: Draft): { settings?: Settings; error?: string } {
+  const number = (v: string) =>
+    v.trim() === "" ? NaN : Number(v.replace(",", "."));
+  const amount = number(d.amount),
+    minSpread = number(d.minSpread),
+    exitSpread = number(d.exitSpread);
+  if (!Number.isFinite(amount) || amount < 10 || amount > 1e6)
+    return { error: "Размер покупки: от 10 до 1 000 000 USDT." };
+  if (!Number.isFinite(minSpread) || minSpread < -10 || minSpread > 100)
+    return { error: "Минимальный спред: от −10 до 100 %." };
+  if (!Number.isFinite(exitSpread) || Math.abs(exitSpread) > 50)
+    return { error: "Спред выхода: от −50 до 50 %." };
+  if (!d.exchanges.length) return { error: "Выберите хотя бы одну биржу." };
+  const assets = [
+    ...new Set(
+      d.assets
+        .toUpperCase()
+        .split(/[\s,;]+/)
+        .filter(Boolean),
+    ),
+  ];
+  if (assets.length > 100 || assets.some((a) => !/^[A-Z0-9]{1,30}$/.test(a)))
+    return { error: "Укажите тикеры монет через пробел или запятую." };
+  const s: Settings = {
+    strategy: d.strategy,
+    amount,
+    minSpread,
+    maxAgeMs: d.maxAgeMs,
+    horizonHours: d.horizonHours,
+    exitSpread,
+    exchanges: [...d.exchanges],
+    assets,
+    interExchange: d.interExchange,
+    sort: d.sort,
+    limit: d.limit,
+  };
+  if (d.manualFees) {
+    s.feeSpot = number(d.feeSpot);
+    s.feePerpetual = number(d.feePerpetual);
+    if (
+      [s.feeSpot, s.feePerpetual].some(
+        (v) => !Number.isFinite(v) || v < 0 || v > 2,
+      )
+    )
+      return { error: "Комиссии taker: от 0 до 2 %." };
+  }
+  return { settings: s };
+}
+export function queryString(s: Settings): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(s)) {
+    if (v !== undefined && (!Array.isArray(v) || v.length))
+      p.set(k, Array.isArray(v) ? v.join(",") : String(v));
+  }
+  return p.toString();
+}
+export type Level = { price: number; quantity: number };
+export type Funding = {
+  rate: number;
+  nextAt: number;
+  intervalMs: number;
+  observedAt: number;
+};
+export type Instrument = {
+  id: string;
+  exchange: string;
+  market: string;
+  nativeSymbol: string;
+  asset: string;
+  quantityStep: number;
+  minQuantity: number;
+  minNotional: number;
+  takerFee: number;
+  tradeUrl: string;
+};
+export type Leg = {
+  instrument: Instrument;
+  price: number;
+  notional: number;
+  fee: number;
+  funding?: Funding;
+  bookAt: number;
+  bids: Level[];
+  asks: Level[];
+};
+export type Opportunity = {
+  horizonHours: number;
+  exitSpreadPct: number;
+  id: string;
+  asset: string;
+  strategy: string;
+  buy: Leg;
+  sell: Leg;
+  quantity: number;
+  entrySpreadPct: number;
+  quoteSpreadPct: number;
+  entryFees: number;
+  netEntryPct: number;
+  exitFeesEstimate: number;
+  fundingEstimate: number | null;
+  fundingEvents: number;
+  scenarioPnl: number | null;
+  spotCyclePnl: number | null;
+  depthUsdt: number;
+  ageMs: number;
+  since: number;
+  calculatedAt: number;
+};
+export type Source = {
+  exchange: string;
+  market: string;
+  state: string;
+  message?: string;
+  instruments: number;
+  books: number;
+  updatedAt: number;
+  lastBookAt: number;
+};
+export type Dataset = {
+  books: Record<string, { bids: Level[]; asks: Level[] }>;
+  rows: Opportunity[];
+  sources: Source[];
+  at: number;
+  assets: string[];
+  configuredAssets: string[];
+  transport: string;
+};
+type WireLeg = Omit<Leg, "bids" | "asks">;
+export type WireDataset = Omit<Dataset, "rows"> & {
+  rows: (Omit<Opportunity, "buy" | "sell"> & { buy: WireLeg; sell: WireLeg })[];
+};
+export function hydrateDataset(d: WireDataset): Dataset {
+  return {
+    ...d,
+    rows: d.rows.map((row) => {
+      const buy = d.books[row.buy.instrument.id],
+        sell = d.books[row.sell.instrument.id];
+      if (!buy || !sell)
+        throw new Error("Не получены стаканы для расчётного снимка.");
+      return {
+        ...row,
+        buy: { ...row.buy, ...buy },
+        sell: { ...row.sell, ...sell },
+      };
+    }),
+  };
+}
+export type Preferences = { settings: Settings | null; favorites: string[] };
+export type History = {
+  points: { at: number; spread: number }[];
+  intervalMs: number;
+  retentionHours: number;
+  sampled: boolean;
+};
+export function isStale(
+  row: Opportunity,
+  now: number,
+  maxAge: number,
+): boolean {
+  return (
+    now - Math.min(row.buy.bookAt, row.sell.bookAt) > maxAge ||
+    now < row.calculatedAt - 2000
+  );
+}
+export function fmt(v: number | null | undefined, digits = 2): string {
+  return v == null || !Number.isFinite(v)
+    ? "—"
+    : v.toLocaleString("ru-RU", {
+        maximumFractionDigits: digits,
+        minimumFractionDigits: digits,
+      });
+}
+export function duration(since: number, now: number): string {
+  if (!since) return "—";
+  const s = Math.max(0, Math.floor((now - since) / 1000));
+  return s < 60
+    ? `${s} с`
+    : s < 3600
+      ? `${Math.floor(s / 60)} мин`
+      : `${Math.floor(s / 3600)} ч ${Math.floor((s % 3600) / 60)} мин`;
+}

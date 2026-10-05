@@ -43,21 +43,18 @@ function MarketTickerPill({ item }: { item: TickerItem }) {
   const pct = item.quote.changePct ?? 0;
   const pctClass = pct >= 0 ? "text-primary" : "text-destructive";
 
-  const width = Math.min(260, Math.max(184, 164 + item.label.length * 7));
-
   return (
     <div
       className="market-ticker-pill mr-2 shrink-0 overflow-hidden rounded-lg border border-border bg-card text-[11px]"
-      style={{ width }}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_66px_48px] items-center gap-2 px-3 py-1.5">
-        <span className="truncate whitespace-nowrap font-semibold text-foreground" title={item.label}>
+      <div className="flex items-center gap-2 px-3 py-1.5">
+        <span className="whitespace-nowrap font-semibold text-foreground" title={item.label}>
           {item.label}
         </span>
-        <span className="truncate whitespace-nowrap text-right tabular-nums text-foreground" title={price}>
+        <span className="whitespace-nowrap tabular-nums text-foreground" title={price}>
           {price}
         </span>
-        <span className={`truncate whitespace-nowrap text-right tabular-nums ${pctClass}`} title={percentage}>
+        <span className={`whitespace-nowrap tabular-nums ${pctClass}`} title={percentage}>
           {percentage}
         </span>
       </div>

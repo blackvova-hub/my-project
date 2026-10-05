@@ -1,0 +1,48 @@
+﻿[
+    {
+        "module":  "api",
+        "testExit":  0,
+        "vetExit":  0,
+        "verification":  "Repeated on a fresh isolated database; all API tests passed"
+    },
+    {
+        "module":  "backtest",
+        "testExit":  0,
+        "vetExit":  0
+    },
+    {
+        "module":  "similarity",
+        "testExit":  0,
+        "vetExit":  0
+    },
+    {
+        "module":  "telegram/admin-bot",
+        "testExit":  0,
+        "vetExit":  0
+    },
+    {
+        "module":  "telegram/news-publisher",
+        "testExit":  0,
+        "vetExit":  0
+    },
+    {
+        "module":  "workers/alert-engine",
+        "testExit":  0,
+        "vetExit":  0
+    },
+    {
+        "module":  "scanners/market-data",
+        "testExit":  0,
+        "vetExit":  0
+    },
+    {
+        "module":  "news/collector",
+        "testExit":  0,
+        "vetExit":  0
+    },
+    {
+        "module":  "arbitrage",
+        "testExit":  0,
+        "vetExit":  0
+    }
+]

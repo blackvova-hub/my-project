@@ -29,6 +29,7 @@ const ScannersPageThree = lazy(
   () => import("../pages/public/scanners/ScannersPageThree"),
 );
 const NewsPage = lazy(() => import("../pages/public/news/NewsPage"));
+const ArbitragePage = lazy(() => import("../pages/public/arbitrage/ArbitragePage"));
 const BacktestPage = lazy(
   () => import("../pages/public/backtest/BacktestPage"),
 );
@@ -204,6 +205,7 @@ export default function App() {
             }
           />
           <Route element={<PublicLayout />}>
+            <Route path="/arbitrage" element={<RequireAuth><ArbitragePage /></RequireAuth>} />
             <Route
               path="/replay"
               element={
@@ -293,31 +295,31 @@ export default function App() {
           </Route>
 
           <Route element={<StandaloneLayout />}>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route
-            path="/admin/wallet-registry"
-            element={
-              <RequireAdmin>
-                <WalletRegistryPage />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <RequireAdmin>
-                <DashboardPage />
-              </RequireAdmin>
-            }
-          />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route
+              path="/admin/wallet-registry"
+              element={
+                <RequireAdmin>
+                  <WalletRegistryPage />
+                </RequireAdmin>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <RequireAdmin>
+                  <DashboardPage />
+                </RequireAdmin>
+              }
+            />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-      {!location.pathname.startsWith("/account") ? (
+      {!location.pathname.startsWith("/account") && !location.pathname.startsWith("/arbitrage") ? (
         <PrimaryExchangeGate />
       ) : null}
     </>

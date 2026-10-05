@@ -122,7 +122,7 @@ export default function Header({
         </Link>
 
         {!isAuth ? (
-          <nav className="hidden items-center gap-6 md:flex">
+          <nav className="app-header-nav hidden items-center gap-6 lg:flex">
             <Link
               to="/#top"
               aria-current={isAnchorActive("#top") ? "page" : undefined}
@@ -165,7 +165,7 @@ export default function Header({
             </Link>
           </nav>
         ) : (
-          <nav className="hidden items-center gap-4 xl:flex">
+          <nav className="app-header-nav hidden items-center gap-4 xl:flex">
             <NavLink
               to="/"
               className={({ isActive }) => linkClass(isActive)}
@@ -234,6 +234,12 @@ export default function Header({
                 Сканеры
               </NavLink>
             )}
+            <NavLink
+              to="/arbitrage"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              Арбитраж
+            </NavLink>
             <NavLink
               to="/backtest"
               className={({ isActive }) => linkClass(isActive)}
@@ -322,6 +328,12 @@ export default function Header({
               </Link>
               <Link
                 className={mobileMenuLinkClass}
+                to="/arbitrage"
+              >
+                Арбитраж
+              </Link>
+              <Link
+                className={mobileMenuLinkClass}
                 to="/backtest"
               >
                 Тест стратегии
@@ -402,7 +414,7 @@ export default function Header({
               </Link>
             </div>
           ) : (
-            <div className="flex min-w-[120px] items-center justify-end gap-2">
+            <div className="app-header-profile flex min-w-[120px] items-center justify-end gap-2">
               {onProfile ? (
                 <button onClick={onProfile} className={actionClass}>
                   Профиль

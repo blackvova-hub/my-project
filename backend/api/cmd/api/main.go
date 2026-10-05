@@ -25,6 +25,7 @@ import (
 	"backend/internal/httpapi/admin"
 	"backend/internal/httpapi/ai"
 	"backend/internal/httpapi/analytics"
+	"backend/internal/httpapi/arbitrageapi"
 	"backend/internal/httpapi/backtest"
 	"backend/internal/httpapi/chartconfig"
 	"backend/internal/httpapi/community"
@@ -207,6 +208,7 @@ func main() {
 	}
 	market := marketapi.New(redisClient)
 	traderAnalytics := analytics.New(authStore, pool, cfg.CORSOrigin)
+	arbitrage := arbitrageapi.New(authStore, pool, os.Getenv("ARBITRAGE_URL"), cfg.CORSOrigin)
 	analyticsContext, stopAnalytics := context.WithCancel(context.Background())
 	defer stopAnalytics()
 	go traderAnalytics.Run(analyticsContext)
@@ -222,6 +224,7 @@ func main() {
 		DailyTokenLimit: cfg.AIDailyTokens,
 	})
 	r.Route("/api", func(r chi.Router) {
+		arbitrage.Routes(r)
 		traderAnalytics.Routes(r)
 		backtests.Routes(r)
 		similarities.Routes(r)
@@ -236,6 +239,7 @@ func main() {
 
 	// Compatibility for nginx /api rewrite: also expose API routes at root.
 	r.Route("/", func(r chi.Router) {
+		arbitrage.Routes(r)
 		traderAnalytics.Routes(r)
 		backtests.Routes(r)
 		similarities.Routes(r)

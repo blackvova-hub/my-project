@@ -28,6 +28,7 @@ func TestApplyMigrationsSmoke(t *testing.T) {
 	}
 
 	checks := []string{
+		"SELECT user_id,settings,favorites,updated_at FROM arbitrage_preferences LIMIT 0",
 		"SELECT period_start,period_end,summary FROM news_summaries LIMIT 0",
 		"SELECT exchange,market,symbol,backfill_to,live_to FROM candle_archive_series LIMIT 0",
 		"SELECT id,user_id,request_key,request,status,progress,lease_token,result FROM backtest_jobs LIMIT 0",

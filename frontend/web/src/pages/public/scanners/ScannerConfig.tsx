@@ -1,6 +1,6 @@
 // src/pages/public/scanners/ScannerConfig.tsx
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
-import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { SegmentedControl as Segmented } from "../../../shared/ui/SegmentedControl";
 import type {
   ApiCreateScannerRuleInput,
   ApiScannerCondition,
@@ -415,49 +415,6 @@ const inputCls =
 const selectCls =
   "w-full rounded-xl border border-border bg-background px-3 py-2 text-foreground focus:border-ring focus:ring-2 focus:ring-ring outline-none";
 const rangeCls = "scanner-range mt-2 w-full";
-
-function Segmented({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: Array<{ value: string; label: string }>;
-}) {
-	const layoutId = useId();
-	const reduceMotion = useReducedMotion();
-  return (
-	<LayoutGroup id={layoutId}>
-	  <div className="inline-flex rounded-xl border border-border bg-background p-1">
-	    {options.map((o) => {
-	      const active = o.value === value;
-	      return (
-	        <motion.button
-	          key={o.value}
-	          type="button"
-	          onClick={() => onChange(o.value)}
-	          whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-	          className={
-	            "relative isolate rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors duration-200 " +
-	            (active ? "text-primary-foreground" : "text-foreground hover:bg-secondary")
-	          }
-	        >
-	          {active ? (
-	            <motion.span
-	              layoutId="scanner-config-segment-active"
-	              className="absolute inset-0 -z-10 rounded-lg bg-primary"
-	              transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 520, damping: 38, mass: 0.7 }}
-	            />
-	          ) : null}
-	          <span className="relative z-10">{o.label}</span>
-	        </motion.button>
-	      );
-	    })}
-	  </div>
-	</LayoutGroup>
-  );
-}
 
 export default function ScannerConfig({ slot }: { slot: ScannerSlot }) {
   const { user, primaryExchange } = useAuth();

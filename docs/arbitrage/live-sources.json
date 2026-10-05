@@ -1,0 +1,116 @@
+{
+  "status": 200,
+  "rows": 80,
+  "transport": "live",
+  "assets": 29,
+  "sources": [
+    {
+      "exchange": "binance",
+      "market": "spot",
+      "state": "live",
+      "instruments": 29,
+      "books": 29,
+      "updatedAt": 1791197989454,
+      "lastBookAt": 1791197989378
+    },
+    {
+      "exchange": "binance",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 29,
+      "books": 29,
+      "updatedAt": 1791197989454,
+      "lastBookAt": 1791197989386
+    },
+    {
+      "exchange": "bybit",
+      "market": "spot",
+      "state": "live",
+      "instruments": 29,
+      "books": 29,
+      "updatedAt": 1791197989431,
+      "lastBookAt": 1791197989421
+    },
+    {
+      "exchange": "bybit",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 28,
+      "books": 28,
+      "updatedAt": 1791197989431,
+      "lastBookAt": 1791197989421
+    },
+    {
+      "exchange": "okx",
+      "market": "spot",
+      "state": "live",
+      "instruments": 29,
+      "books": 28,
+      "updatedAt": 1791197989400,
+      "lastBookAt": 1791197989288
+    },
+    {
+      "exchange": "okx",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 29,
+      "books": 29,
+      "updatedAt": 1791197989400,
+      "lastBookAt": 1791197989251
+    },
+    {
+      "exchange": "bitget",
+      "market": "spot",
+      "state": "live",
+      "instruments": 29,
+      "books": 28,
+      "updatedAt": 1791197989365,
+      "lastBookAt": 1791197989146
+    },
+    {
+      "exchange": "bitget",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 29,
+      "books": 29,
+      "updatedAt": 1791197989365,
+      "lastBookAt": 1791197989071
+    },
+    {
+      "exchange": "gateio",
+      "market": "spot",
+      "state": "live",
+      "instruments": 29,
+      "books": 29,
+      "updatedAt": 1791197989474,
+      "lastBookAt": 1791197988876
+    },
+    {
+      "exchange": "gateio",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 24,
+      "books": 24,
+      "updatedAt": 1791197989474,
+      "lastBookAt": 1791197989421
+    },
+    {
+      "exchange": "kucoin",
+      "market": "spot",
+      "state": "live",
+      "instruments": 29,
+      "books": 29,
+      "updatedAt": 1791197989405,
+      "lastBookAt": 1791197988806
+    },
+    {
+      "exchange": "kucoin",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 29,
+      "books": 29,
+      "updatedAt": 1791197989405,
+      "lastBookAt": 1791197988704
+    }
+  ]
+}

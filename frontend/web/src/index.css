@@ -64,16 +64,37 @@
 
 .group:hover > .app-nav-dropdown,
 .group:focus-within > .app-nav-dropdown { transform: none; visibility: visible; }
-.app-brand { transition: color 180ms ease; }
+.app-brand { justify-self: start; transition: color 180ms ease; }
 .app-brand:hover { color: var(--primary); }
+
+/* Equal side columns keep navigation at the viewport center, independent of branding/actions. */
+@media (min-width: 1024px) {
+  [data-app-header][data-authenticated="false"] .app-header-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  [data-app-header][data-authenticated="true"] .app-header-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+}
+
+.app-header-nav { justify-self: center; }
 
 .standalone-content > .min-h-screen { min-height: calc(100svh - var(--app-header-offset, 72px)); }
 
 @media (max-width: 639px) {
-  [data-app-header][data-authenticated="false"] .app-header-actions { display: contents; }
-  [data-app-header][data-authenticated="false"] .app-theme-switch { margin-left: auto; }
+  main h1 { overflow-wrap: anywhere; }
+  .app-header-actions { display: contents; }
+  .app-theme-switch { margin-left: auto; }
   .app-auth-actions { width: 100%; justify-content: flex-end; }
-  .app-mobile-menu { order: 3; }
+  .app-mobile-menu { order: 3; flex-basis: calc(100% - 136px); margin-left: 0; }
+  .app-mobile-menu summary { display: inline-flex; }
+  .app-mobile-menu nav { left: 0; right: auto; }
+  .app-header-profile { order: 4; margin-left: auto; }
 }
 
 /* Existing component transitions must not animate a theme change in reduced motion. */

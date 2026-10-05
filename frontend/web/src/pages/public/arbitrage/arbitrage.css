@@ -1,0 +1,63 @@
+/* Geometry is copied from ScannerConfig. Colors always come from the site's themes. */
+.arb-panel {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  padding: 24px;
+}
+.arb-range {
+  appearance: none;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--secondary);
+}
+.arb-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--primary);
+  border: 1px solid var(--ring);
+  cursor: pointer;
+}
+.arb-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--primary);
+  border: 1px solid var(--ring);
+  cursor: pointer;
+}
+.arb-range::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--secondary);
+}
+.arb-range:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 5px;
+}
+.arb-table {
+  min-width: 1050px;
+  font-variant-numeric: tabular-nums;
+}
+.arb-dialog {
+  width: min(900px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 24px;
+  overscroll-behavior: contain;
+}
+.arb-dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+@media (max-width: 639px) {
+  .arb-panel,
+  .arb-dialog {
+    padding: 16px;
+  }
+}

@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:arbitrage": "node --experimental-strip-types --test tests/arbitrage.test.mjs",
+    "test:arbitrage:live": "node tests/arbitrage-live.mjs",
     "dev": "vite",
     "test:analytics": "node --experimental-strip-types --test tests/analytics.test.mjs",
     "test:analytics:live": "node tests/analytics-live.mjs",
