@@ -1,6 +1,13 @@
 # server01 only: use its existing awg0 VPN for Gate's public traffic.
 # Redis remains reachable through the normal application network.
 services:
+  telegram_admin_bot:
+    dns: [1.1.1.1, 1.0.0.1]
+    networks:
+      default: {}
+      arbitrage_gate_egress:
+        ipv4_address: 172.31.254.4
+        gw_priority: 1
   arbitrage_engine:
     networks:
       default: {}

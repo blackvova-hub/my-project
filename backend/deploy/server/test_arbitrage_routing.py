@@ -31,19 +31,24 @@ class RoutingOwnershipTests(unittest.TestCase):
             routing.main()
         return calls
 
-    def test_adds_only_two_owned_source_rules(self):
+    def test_adds_only_three_owned_source_rules(self):
         calls = self.exercise([])
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 3)
         self.assertTrue(all("add" in call and "from" in call and "51820" in call for call in calls))
-        self.assertEqual({call[call.index("from") + 1] for call in calls}, {"172.31.254.2/32", "172.31.254.3/32"})
+        self.assertEqual({call[call.index("from") + 1] for call in calls}, {"172.31.254.2/32", "172.31.254.3/32", "172.31.254.4/32"})
 
     def test_existing_rules_are_idempotent(self):
-        rules = [{"priority": p, "table": 51820, "src": source} for p, source in [(32120, "172.31.254.2"), (32121, "172.31.254.3")]]
+        rules = [{"priority": p, "table": 51820, "src": source} for p, source in [(32120, "172.31.254.2"), (32121, "172.31.254.3"), (32122, "172.31.254.4")]]
         self.assertEqual(self.exercise(rules), [])
 
     def test_unrelated_priority_is_rejected(self):
         with self.assertRaisesRegex(RuntimeError, "unrelated"):
             self.exercise([{"priority": 32121, "table": 99, "src": "172.31.254.3"}])
+
+    def test_unrelated_admin_bot_rule_is_rejected(self):
+        for rule in [{"priority": 32122, "table": 99, "src": "172.31.254.4"}, {"priority": 32122, "table": 51820, "src": "172.18.0.15"}]:
+            with self.subTest(rule=rule), self.assertRaisesRegex(RuntimeError, "unrelated"):
+                self.exercise([rule])
 
 
 if __name__ == "__main__":

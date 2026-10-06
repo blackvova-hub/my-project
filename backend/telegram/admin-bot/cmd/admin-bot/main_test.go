@@ -1,11 +1,32 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+type failingTransport struct{}
+
+func (failingTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, errors.New("network unreachable")
+}
+
+func TestTelegramTransportErrorDoesNotRevealToken(t *testing.T) {
+	token := "123456:fake-test-token"
+	tg := telegramClient{token: token, base: telegramAPIBase, client: &http.Client{Transport: failingTransport{}}}
+	err := tg.call(context.Background(), "getMe", map[string]any{}, nil)
+	if err == nil || strings.Contains(err.Error(), token) || !strings.Contains(err.Error(), "network unreachable") {
+		t.Fatalf("unexpected transport diagnostic: %v", err)
+	}
+	if text := redact("Post https://api.telegram.org/bot" + token + "/getUpdates"); strings.Contains(text, token) || !strings.Contains(text, "/getUpdates") {
+		t.Fatal("Telegram URL was not safely redacted")
+	}
+}
 
 func TestAuthorizerClaimCannotBeReused(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")

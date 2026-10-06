@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "checks": [
+    "real HTTP origin lacks randomUUID and provides getRandomValues",
+    "HTTP UI submit creates a real job with valid UUIDv4",
+    "same request key reuses the job without duplicate execution",
+    "real historical backtest completes and survives reload",
+    "mobile results render without horizontal overflow"
+  ],
+  "errors": [],
+  "capability": {
+    "secure": false,
+    "uuid": "undefined",
+    "random": "function"
+  },
+  "jobId": "b8d72031-1696-40df-9a83-b3b8a7697c1c"
+}

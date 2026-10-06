@@ -219,12 +219,12 @@ func (t *telegramClient) call(ctx context.Context, method string, input any, out
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(t.base, "/")+"/bot"+t.token+"/"+method, bytes.NewReader(body))
 	if err != nil {
-		return err
+		return fmt.Errorf("Telegram %s request: %s", method, strings.ReplaceAll(err.Error(), t.token, "[redacted]"))
 	}
 	req.Header.Set("Content-Type", "application/json")
 	response, err := t.client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("Telegram %s transport: %s", method, strings.ReplaceAll(err.Error(), t.token, "[redacted]"))
 	}
 	defer response.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
@@ -397,7 +397,7 @@ type adminBot struct {
 }
 
 func main() {
-	healthcheck := flag.Bool("healthcheck", false, "check Docker socket and authorization state")
+	healthcheck := flag.Bool("healthcheck", false, "check Docker, authorization state and Telegram connectivity")
 	flag.Parse()
 	cfg, err := loadConfig()
 	if err != nil {
@@ -409,7 +409,12 @@ func main() {
 	}
 	bot := &adminBot{cfg: cfg, auth: auth, docker: newDockerClient(cfg.DockerSocket), tg: &telegramClient{token: cfg.Token, base: cfg.APIBase, client: &http.Client{Timeout: cfg.PollTimeout + 15*time.Second}}}
 	if *healthcheck {
-		if _, err := bot.docker.containers(context.Background()); err != nil {
+		healthCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+		if _, err := bot.docker.containers(healthCtx); err != nil {
+			log.Fatal(err)
+		}
+		if err := bot.tg.call(healthCtx, "getMe", map[string]any{}, nil); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -731,8 +736,11 @@ func splitMessage(value string, limit int) []string {
 }
 
 var sensitiveAssignment = regexp.MustCompile(`(?i)(password|token|secret|authorization)=([^\s&]+)`)
+var telegramTokenURL = regexp.MustCompile(`(?i)(/bot)[0-9]+:[a-z0-9_-]+`)
 
-func redact(value string) string { return sensitiveAssignment.ReplaceAllString(value, "$1=[redacted]") }
+func redact(value string) string {
+	return telegramTokenURL.ReplaceAllString(sensitiveAssignment.ReplaceAllString(value, "$1=[redacted]"), "$1[redacted]")
+}
 
 func parseChatIDs(raw string) []int64 {
 	ids := []int64{}

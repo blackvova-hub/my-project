@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Route Gate and public alternative-source egress through server01's awg0 VPN.
+"""Route Gate, public alternative sources and the admin bot through awg0.
 The dedicated Docker address is stable across restarts. No DNS IP hardcoding,
 VPN keys, global default route or existing application networks are modified.
 """
@@ -53,11 +53,17 @@ def main():
             raise RuntimeError("Engine policy priority is used by an unrelated rule")
         if not engine_rules:
             run("ip", "-4", "rule", "add", "priority", engine_priority, "from", engine_source + "/32", "lookup", TABLE)
+        bot_priority, bot_source = "32122", "172.31.254.4"
+        bot_rules = [r for r in rules if str(r.get("priority")) == bot_priority]
+        if any(str(r.get("table")) != TABLE or r.get("src", "").removesuffix("/32") != bot_source or r.get("dst", "all") != "all" for r in bot_rules):
+            raise RuntimeError("Admin bot policy priority is used by an unrelated rule")
+        if not bot_rules:
+            run("ip", "-4", "rule", "add", "priority", bot_priority, "from", bot_source + "/32", "lookup", TABLE)
         temporary = STATE.with_suffix(".new")
         temporary.write_text(json.dumps({"source": SOURCE, "table": TABLE}))
         temporary.chmod(0o600)
         temporary.replace(STATE)
-        print("Gate and arbitrage public sources routed through awg0; global default route unchanged")
+        print("Gate, arbitrage public sources and admin bot routed through awg0; global default route unchanged")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import { BacktestResults, Methodology } from "./BacktestResults";
 import { Icon, Panel } from "./ui";
 import { backtestLimits, planLimitError } from "./limits";
 import { LimitDialog } from "./LimitDialog";
+import { createRequestKey } from "./requestKey";
 import {
   isActive,
   readDraft,
@@ -142,7 +143,12 @@ function BacktestWorkspace({ userId, plan }: { userId: string; plan?: string }) 
       return;
     }
     setError("");
-    requestKey.current ??= crypto.randomUUID();
+    try {
+      requestKey.current ??= createRequestKey();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Не удалось создать идентификатор запроса.");
+      return;
+    }
     submitted.current ??= request;
     create.mutate({ payload: submitted.current, key: requestKey.current });
   };

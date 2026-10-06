@@ -56,3 +56,13 @@ The authorization state is stored in the Docker volume `telegram_admin_state`;
 it survives container recreation. Never send the BotFather token or bootstrap
 secret to anyone. If the first chat is lost, stop the bot and deliberately
 remove/reset only that volume after confirming the target.
+
+## Connectivity on server01
+
+The server Compose overlay assigns the admin bot `172.31.254.4` on the existing
+VPN egress bridge and uses explicit DNS resolvers. The routing timer maintains
+the owned source rule at priority `32122` through the existing `awg0` table;
+application traffic, the host default route and authorization storage retain
+their existing configuration. If Telegram becomes unreachable, the healthcheck
+now fails its bounded `getMe` request instead of reporting Docker access alone
+as healthy. Transport diagnostics redact the bot token.
