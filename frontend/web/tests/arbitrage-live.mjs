@@ -59,10 +59,14 @@ try {
   expect(initial.status()).toBe(200);
   original = await initial.json();
   const defaults = {
+    budget: true,
+    minAvailable: 0,
+    network: "all",
+    lpRangePct: 10,
     simple: true,
     search: "",
     strategy: "spot-perpetual",
-    amount: 1000,
+    amount: 100,
     minSpread: 0,
     maxAgeMs: 10000,
     horizonHours: 24,
@@ -92,17 +96,24 @@ try {
     page.getByRole("textbox", { name: "Найти монету" }),
   ).toBeVisible();
   await expect(page.getByRole("slider")).toHaveCount(0);
-  await expect(page.getByRole("combobox")).toHaveCount(0);
+  await expect(
+    page.getByRole("combobox", { name: "Стратегия", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Мин. доступно, USDT", exact: true }),
+  ).toHaveValue("0");
   await expect(
     page.getByText("Комиссии и сценарий выхода", { exact: true }),
   ).toHaveCount(0);
-  check("simple authenticated page: only modes, exchanges and coin search");
+  check(
+    "authenticated page: strategy, availability filter, modes, exchanges and coin search",
+  );
   let snapshot;
   await expect
     .poll(
       async () => {
         const r = await context.request.get(
-          `${base}/api/arbitrage/opportunities?simple=true&limit=100`,
+          `${base}/api/arbitrage/opportunities?simple=true&budget=true&limit=100`,
         );
         if (r.status() !== 200) return false;
         snapshot = await r.json();
@@ -253,6 +264,39 @@ try {
   await search.fill("");
   await search.blur();
   check("coin search and automatic preferences survive reload");
+  const availability = page.getByRole("textbox", {
+    name: "Мин. доступно, USDT",
+    exact: true,
+  });
+  await availability.fill("100");
+  await availability.blur();
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await context.request.get(`${base}/api/arbitrage/preferences`)
+          ).json()
+        ).settings.minAvailable,
+    )
+    .toBe(100);
+  const filtered = await context.request.get(
+    `${base}/api/arbitrage/opportunities?simple=true&budget=true&minAvailable=100&limit=300`,
+  );
+  expect(
+    (await filtered.json()).rows.every((o) => o.depthUsdt >= 100 - 1e-8),
+  ).toBeTruthy();
+  await page.reload();
+  await expect(availability).toHaveValue("100");
+  await availability.fill("-1");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "минимальную доступность" }),
+  ).toBeVisible();
+  await availability.fill("0");
+  await availability.blur();
+  check(
+    "minimum availability filters backend rows, persists, accepts zero and rejects negative input",
+  );
   for (const [strategy, label] of [
     ["perpetual-perpetual", "Фьючерс–фьючерс"],
     ["spot-spot", "Спот–спот"],
@@ -270,6 +314,148 @@ try {
     expect(d.rows.every((o) => o.strategy === strategy)).toBeTruthy();
   }
   check("all three live arbitrage modes");
+  await page.setViewportSize({ width: 1536, height: 1024 });
+  result.strategies = {};
+  for (const [strategy, label] of [
+    ["cex-cex", "Мгновенный CEX↔CEX"],
+    ["funding", "Funding Arbitrage"],
+    ["xemm", "XEMM"],
+    ["redemption", "Redemption / Depeg"],
+    ["hedged-lp", "Hedged LP"],
+  ]) {
+    await page
+      .getByRole("combobox", { name: "Стратегия", exact: true })
+      .click();
+    await page.getByRole("option", { name: label, exact: true }).click();
+    let live;
+    await expect
+      .poll(
+        async () => {
+          const response = await context.request.get(
+            `${base}/api/arbitrage/opportunities?simple=true&budget=true&strategy=${strategy}&amount=100&horizonHours=24&lpRangePct=10&network=all&limit=100`,
+          );
+          if (response.status() !== 200) return false;
+          live = await response.json();
+          return live.rows.length > 0;
+        },
+        { timeout: 90000, intervals: [2000, 5000] },
+      )
+      .toBeTruthy();
+    expect(
+      live.rows.every(
+        (o) => o.strategy === strategy && o.metrics?.kind === strategy,
+      ),
+    ).toBeTruthy();
+    if (strategy === "xemm")
+      expect(new Set(live.rows.map((o) => o.metrics.makerSide))).toEqual(
+        new Set(["buy", "sell"]),
+      );
+    if (strategy === "redemption")
+      expect(
+        live.rows.every((o) => o.metrics.eligibility === "unverified"),
+      ).toBeTruthy();
+    if (strategy === "hedged-lp")
+      expect(
+        live.rows.every(
+          (o) =>
+            o.metrics.poolAddress?.startsWith("0x") &&
+            o.metrics.residualQuantity >= 0 &&
+            o.metrics.historicalApy === o.metrics.valuePct,
+        ),
+      ).toBeTruthy();
+    result.strategies[strategy] = {
+      total: live.total,
+      sources: live.externalSources ?? [],
+      sample: live.rows[0],
+    };
+    await expect(page.locator(".arb-table tbody tr").first()).toBeVisible();
+    await expect
+      .poll(async () => page.locator(".arb-table thead").innerText())
+      .not.toContain("Длительность");
+    await expect(page.locator(".arb-table tbody tr").first()).toHaveAttribute(
+      "data-strategy",
+      strategy,
+    );
+    await page.screenshot({
+      path: resolve(output, `strategy-${strategy}.png`),
+    });
+    await page
+      .locator(".arb-table tbody tr")
+      .first()
+      .getByRole("button", { name: /^Подробности/ })
+      .click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "История разницы цен", exact: true }),
+    ).toHaveCount(0);
+    await page.screenshot({ path: resolve(output, `details-${strategy}.png`) });
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    ).toBeTruthy();
+    await page.screenshot({ path: resolve(output, `mobile-${strategy}.png`) });
+    await page.setViewportSize({ width: 1536, height: 1024 });
+    check(`live ${strategy}: genuine metrics, detail modal and mobile layout`);
+    if (strategy === "funding") {
+      await page
+        .getByRole("combobox", { name: "Горизонт", exact: true })
+        .click();
+      await page.getByRole("option", { name: "72 ч", exact: true }).click();
+      await expect
+        .poll(
+          async () =>
+            (
+              await (
+                await context.request.get(`${base}/api/arbitrage/preferences`)
+              ).json()
+            ).settings.horizonHours,
+        )
+        .toBe(72);
+      check("funding horizon updates and persists");
+    }
+    if (strategy === "hedged-lp") {
+      await page
+        .getByRole("combobox", { name: "Сеть LP", exact: true })
+        .click();
+      await page.getByRole("option", { name: "Arbitrum", exact: true }).click();
+      await page
+        .getByRole("combobox", { name: "Диапазон LP", exact: true })
+        .click();
+      await page.getByRole("option", { name: "± 20 %", exact: true }).click();
+      await expect
+        .poll(async () => {
+          const saved = (
+            await (
+              await context.request.get(`${base}/api/arbitrage/preferences`)
+            ).json()
+          ).settings;
+          return saved.network === "Arbitrum" && saved.lpRangePct === 20;
+        })
+        .toBeTruthy();
+      const lp = await context.request.get(
+        `${base}/api/arbitrage/opportunities?simple=true&budget=true&strategy=hedged-lp&network=Arbitrum&lpRangePct=20&amount=100`,
+      );
+      const d = await lp.json();
+      expect(d.rows.length).toBeGreaterThan(0);
+      expect(
+        d.rows.every(
+          (o) =>
+            o.metrics.network === "Arbitrum" && o.metrics.lpRangePct === 20,
+        ),
+      ).toBeTruthy();
+      check("LP network and tick-aligned range update calculation and persist");
+    }
+  }
+  await page.getByRole("combobox", { name: "Стратегия", exact: true }).click();
+  await page
+    .getByRole("option", { name: "Обычный арбитраж", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Спот–фьючерс", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   const bybit = page.getByRole("button", { name: "Bybit", exact: true });
   await bybit.click();
   await expect(bybit).toHaveAttribute("aria-pressed", "false");

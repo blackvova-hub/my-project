@@ -1,3 +1,10 @@
+import {
+  classic,
+  validAmount,
+  validAvailability,
+  strategyDescriptions,
+  marketLabel,
+} from "./strategyModel";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,7 +24,6 @@ import {
   duration,
   exchangeNames,
   exchanges,
-  fmt,
   hydrateDataset,
   identityLabel,
   isStale,
@@ -30,6 +36,7 @@ import {
   type Settings,
 } from "./model";
 import "./arbitrage.css";
+import { StrategyControls, MetricCell, VolumeCell } from "./StrategyControls";
 const RouteDetails = lazy(() => import("./RouteDetails"));
 const strategies = [
   { value: "spot-perpetual", label: "Спот–фьючерс" },
@@ -91,6 +98,12 @@ function Workspace({
     simpleSettings(initial.settings),
   );
   const [favorites, setFavorites] = useState(initial.favorites);
+  const [amountText, setAmountText] = useState(() =>
+    String(simpleSettings(initial.settings).amount),
+  );
+  const [availabilityText, setAvailabilityText] = useState(() =>
+    String(simpleSettings(initial.settings).minAvailable ?? 0),
+  );
   const [paused, setPaused] = useState(false);
   const [tab, setTab] = useState("all");
   const [offset, setOffset] = useState(0);
@@ -103,8 +116,16 @@ function Workspace({
     tab === "favorites" ? favorites : undefined,
   );
   const [query, setQuery] = useState(serialized);
+  const minExchanges = ["funding", "redemption", "hedged-lp"].includes(
+    settings.strategy,
+  )
+    ? 1
+    : 2;
   const valid =
-    settings.exchanges.length >= 2 && validSearch(settings.search ?? "");
+    settings.exchanges.length >= minExchanges &&
+    validSearch(settings.search ?? "") &&
+    validAvailability(availabilityText) &&
+    validAmount(amountText);
   useEffect(() => {
     const t = window.setTimeout(() => setQuery(serialized), 300);
     return () => window.clearTimeout(t);
@@ -145,7 +166,15 @@ function Workspace({
   const change = (next: Settings) => {
     setSettings(next);
     setOffset(0);
-    if (next.exchanges.length >= 2 && validSearch(next.search ?? ""))
+    if (
+      next.exchanges.length >=
+        (["funding", "redemption", "hedged-lp"].includes(next.strategy)
+          ? 1
+          : 2) &&
+      validSearch(next.search ?? "") &&
+      validAmount(amountText) &&
+      validAvailability(availabilityText)
+    )
       void persist(next);
   };
   const favorite = async (id: string) => {
@@ -184,7 +213,15 @@ function Workspace({
   const needed =
     settings.strategy === "spot-perpetual"
       ? ["spot", "perpetual"]
-      : [settings.strategy === "spot-spot" ? "spot" : "perpetual"];
+      : settings.strategy === "funding" || settings.strategy === "xemm"
+        ? ["spot", "perpetual"]
+        : [
+            settings.strategy === "spot-spot" ||
+            settings.strategy === "cex-cex" ||
+            settings.strategy === "redemption"
+              ? "spot"
+              : "perpetual",
+          ];
   const sourceStates = exchanges.map((e) => {
     const sources =
       data?.sources.filter(
@@ -216,9 +253,13 @@ function Workspace({
             Арбитраж
           </h1>
           <span className="text-sm text-muted-foreground">
-            {data?.universeMode === "selected"
-              ? "Выбранные монеты"
-              : "Все монеты"}{" "}
+            {settings.strategy === "hedged-lp"
+              ? "Пулы ETH / BTC"
+              : settings.strategy === "redemption"
+                ? "USDC / USDe"
+                : data?.universeMode === "selected"
+                  ? "Выбранные монеты"
+                  : "Все монеты"}{" "}
             · 6 бирж
           </span>
         </div>
@@ -232,14 +273,50 @@ function Workspace({
         </button>
       </div>
       <section className="arb-panel" aria-label="Арбитражные связки">
+        <StrategyControls
+          settings={settings}
+          amountText={amountText}
+          availabilityText={availabilityText}
+          onAvailability={(text) => {
+            setAvailabilityText(text);
+            setOffset(0);
+            if (validAvailability(text))
+              setSettings((s) => ({
+                ...s,
+                minAvailable: Number(text.replace(",", ".")),
+              }));
+          }}
+          disabled={paused}
+          onChange={change}
+          onAmount={(text) => {
+            setAmountText(text);
+            setOffset(0);
+            if (validAmount(text))
+              setSettings((s) => ({
+                ...s,
+                amount: Number(text.replace(",", ".")),
+              }));
+          }}
+          onAmountBlur={() => {
+            if (valid) void persist(settings);
+          }}
+        />
         <div className="arb-controls">
-          <SegmentedControl
-            wrap
-            value={settings.strategy}
-            options={strategies}
-            label="Режим арбитража"
-            onChange={(strategy) => change({ ...settings, strategy })}
-          />
+          {classic(settings.strategy) ? (
+            <SegmentedControl
+              wrap
+              value={settings.strategy}
+              options={strategies}
+              label="Режим арбитража"
+              onChange={(strategy) => change({ ...settings, strategy })}
+            />
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              {settings.strategy === "hedged-lp"
+                ? "Пулы ETH / BTC — USDC"
+                : "Сканер выбранной стратегии"}
+            </span>
+          )}
           <label className="arb-search">
             <Search size={18} aria-hidden="true" />
             <input
@@ -294,7 +371,10 @@ function Workspace({
             );
           })}
         </div>
-        <p className="arb-description">{descriptions[settings.strategy]}</p>
+        <p className="arb-description">
+          {descriptions[settings.strategy] ??
+            strategyDescriptions[settings.strategy]}
+        </p>
         {notice ? (
           <p role="status" className="mb-3 text-sm text-destructive">
             {notice}
@@ -302,9 +382,13 @@ function Workspace({
         ) : null}
         {!valid ? (
           <p role="alert" className="mb-3 text-sm text-destructive">
-            {settings.exchanges.length < 2
-              ? "Выберите минимум две биржи."
-              : "Введите тикер монеты: например BTC или 1INCH."}
+            {!validAvailability(availabilityText)
+              ? "Введите минимальную доступность от 0 до 1 000 000 USDT."
+              : !validAmount(amountText)
+                ? "Введите сумму от 10 до 1 000 000 USDT."
+                : settings.exchanges.length < minExchanges
+                  ? `Выберите минимум ${minExchanges} ${minExchanges === 1 ? "биржу" : "биржи"}.`
+                  : "Введите тикер монеты: например BTC или 1INCH."}
           </p>
         ) : null}
         <div className="arb-results-heading">
@@ -347,9 +431,18 @@ function Workspace({
                   "Монета",
                   "Купить",
                   "Продать",
-                  "Разница",
+                  settings.strategy === "funding"
+                    ? "Funding после расходов"
+                    : settings.strategy === "hedged-lp"
+                      ? "APY пула"
+                      : settings.strategy === "redemption"
+                        ? "Дисконт"
+                        : settings.strategy === "cex-cex" ||
+                            settings.strategy === "xemm"
+                          ? "После расходов"
+                          : "Разница цен",
                   "Доступно, USDT",
-                  "Длительность",
+                  classic(settings.strategy) ? "Длительность" : "Условие",
                 ].map((t) => (
                   <th key={t} scope="col">
                     {t}
@@ -364,7 +457,7 @@ function Workspace({
               {rows.map((o) => {
                 const stale = unhealthy || isStale(o, quoteNow, 10000);
                 return (
-                  <tr key={o.id}>
+                  <tr key={o.id} data-strategy={o.strategy}>
                     <td>
                       <div className="flex items-center gap-3">
                         <button
@@ -405,25 +498,34 @@ function Workspace({
                           {exchangeNames[leg.instrument.exchange]}
                         </div>
                         <div className="arb-price">
-                          {leg.instrument.market === "spot"
-                            ? "Спот"
-                            : "Фьючерс"}{" "}
-                          ·{" "}
+                          {marketLabel(leg.instrument.market)} ·{" "}
                           {leg.price.toLocaleString("ru-RU", {
                             maximumSignificantDigits: 8,
                           })}
                         </div>
                       </td>
                     ))}
-                    <td
-                      className={
-                        stale ? "text-muted-foreground" : "arb-positive"
-                      }
-                    >
-                      {stale ? "—" : `+${fmt(o.entrySpreadPct)} %`}
+                    <td>
+                      <MetricCell row={o} stale={stale} />
                     </td>
-                    <td>{stale ? "—" : fmt(o.depthUsdt)}</td>
-                    <td>{stale ? "—" : duration(o.since, quoteNow)}</td>
+                    <td>
+                      <VolumeCell row={o} stale={stale} />
+                    </td>
+                    <td>
+                      {stale
+                        ? "—"
+                        : classic(settings.strategy)
+                          ? duration(o.since, quoteNow)
+                          : o.metrics?.kind === "funding"
+                            ? `${o.metrics.fundingEvents} начисл.`
+                            : o.metrics?.kind === "hedged-lp"
+                              ? o.metrics.network
+                              : o.metrics?.kind === "xemm"
+                                ? `Maker ${o.metrics.makerSide === "sell" ? "sell" : "buy"} → hedge`
+                                : o.metrics?.kind === "cex-cex"
+                                  ? "Средства на двух биржах"
+                                  : "Проверить погашение"}
+                    </td>
                     <td>
                       <button
                         className="arb-star"
@@ -482,9 +584,22 @@ function Workspace({
           </div>
         ) : null}
         <p className="arb-footnote">
-          Разница цен — до расходов на сделки. Доступно — объём по указанным
-          ценам.
+          {classic(settings.strategy)
+            ? "Доступно — сумма покупки по сопоставимой глубине обеих бирж, пока разница цен положительная. Цены средние по этой глубине; расходы не учтены."
+            : "Оценка сканера, без отправки ордеров. Условия и ограничения раскрываются в подробностях связки."}
         </p>
+        {data?.externalSources?.length ? (
+          <div className="arb-external-sources">
+            {data.externalSources.map((source) => (
+              <span key={source.name} title={source.message}>
+                {source.name}:{" "}
+                {source.state === "live"
+                  ? `${source.count} источн.`
+                  : "недоступно"}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <details className="arb-sources">
           <summary>
             <span className="flex items-center gap-3">
@@ -520,6 +635,10 @@ function Workspace({
                     {s.books} / рынков {s.instruments}
                     {s.connections
                       ? ` · подключений ${s.connected}/${s.connections}`
+                      : ""}
+                    {s.market === "perpetual" &&
+                    ["funding", "hedged-lp"].includes(settings.strategy)
+                      ? ` · funding ${s.fundingBooks ?? 0}`
                       : ""}
                   </p>
                 ))}

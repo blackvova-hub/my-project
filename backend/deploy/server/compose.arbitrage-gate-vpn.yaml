@@ -1,6 +1,12 @@
 # server01 only: use its existing awg0 VPN for Gate's public traffic.
 # Redis remains reachable through the normal application network.
 services:
+  arbitrage_engine:
+    networks:
+      default: {}
+      arbitrage_gate_egress:
+        ipv4_address: 172.31.254.3
+        gw_priority: 1
   arbitrage_gateio:
     networks:
       default: {}

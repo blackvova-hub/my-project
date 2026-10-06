@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { X, ExternalLink } from "lucide-react";
 import { http } from "../../../shared/api/http";
+import StrategyDetails from "./StrategyDetails";
+import { marketLabel, classic } from "./strategyModel";
 import {
   exchangeNames,
   fmt,
@@ -11,20 +13,33 @@ import {
   type Opportunity,
 } from "./model";
 
-function Book({ leg, buy }: { leg: Leg; buy: boolean }) {
+function Book({
+  leg,
+  buy,
+  maker = false,
+}: {
+  leg: Leg;
+  buy: boolean;
+  maker?: boolean;
+}) {
   return (
     <section className="min-w-0 rounded-xl border border-border p-4">
       <h3 className="font-semibold">
-        {buy ? "Купить / Long" : "Продать / Short"} ·{" "}
-        {exchangeNames[leg.instrument.exchange]}
+        {maker
+          ? buy
+            ? "Maker-покупка"
+            : "Maker-продажа"
+          : buy
+            ? "Купить / Long"
+            : "Продать / Short"}{" "}
+        · {exchangeNames[leg.instrument.exchange]}
       </h3>
       <div className="mt-1 text-xs text-muted-foreground">
         {leg.instrument.nativeSymbol}
         {identityLabel(leg.instrument.assetIdentity)
           ? ` · ${identityLabel(leg.instrument.assetIdentity)}`
           : ""}{" "}
-        ·{" "}
-        {leg.instrument.market === "spot" ? "Спот" : "Бессрочный USDT-фьючерс"}
+        · {marketLabel(leg.instrument.market)}
       </div>
       <div className="my-3 space-y-1 text-sm">
         <p>
@@ -32,30 +47,52 @@ function Book({ leg, buy }: { leg: Leg; buy: boolean }) {
           {leg.price.toLocaleString("ru-RU", { maximumSignificantDigits: 8 })}{" "}
           USDT
         </p>
-        <p>Доступный объём: {fmt(leg.notional)} USDT</p>
+        <p>
+          {maker ||
+          leg.instrument.market === "lp" ||
+          leg.instrument.market === "redemption"
+            ? "Размер расчёта"
+            : "По известной глубине"}
+          : {fmt(leg.notional)} USDT
+        </p>
         <p>
           Время котировки: {new Date(leg.bookAt).toLocaleTimeString("ru-RU")}
         </p>
       </div>
-      <table className="w-full text-sm">
-        <caption className="mb-2 text-left text-xs text-muted-foreground">
-          {buy ? "Предложения продажи" : "Предложения покупки"}
-        </caption>
-        <thead>
-          <tr>
-            <th className="text-left font-medium">Цена</th>
-            <th className="text-right font-medium">Количество</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(buy ? leg.asks : leg.bids).map((l) => (
-            <tr key={l.price}>
-              <td className="py-1">{fmt(l.price, 8)}</td>
-              <td className="text-right">{fmt(l.quantity, 8)}</td>
+      {leg.instrument.market === "spot" ||
+      leg.instrument.market === "perpetual" ? (
+        <table className="w-full text-sm">
+          <caption className="mb-2 text-left text-xs text-muted-foreground">
+            {maker
+              ? buy
+                ? "Текущие bid, очередь исполнения неизвестна"
+                : "Текущие ask, очередь исполнения неизвестна"
+              : buy
+                ? "Предложения продажи"
+                : "Предложения покупки"}
+          </caption>
+          <thead>
+            <tr>
+              <th className="text-left font-medium">Цена</th>
+              <th className="text-right font-medium">Количество</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(buy !== maker ? leg.asks : leg.bids)?.map((l) => (
+              <tr key={l.price}>
+                <td className="py-1">{fmt(l.price, 8)}</td>
+                <td className="text-right">{fmt(l.quantity, 8)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {leg.instrument.market === "lp"
+            ? "Позиция LP: цена из контракта пула, не CEX-ордер."
+            : "Номинальный ориентир эмитента, не исполнимый ордер продажи."}
+        </p>
+      )}
       <a
         className="mt-4 inline-flex items-center gap-2 text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
         href={leg.instrument.tradeUrl}
@@ -170,6 +207,7 @@ export default function RouteDetails({
       http<History>(`/arbitrage/history?id=${row.id}`, { signal }),
     refetchInterval: 30000,
     retry: 1,
+    enabled: classic(row.strategy),
   });
   useEffect(() => {
     const dialog = ref.current;
@@ -223,27 +261,34 @@ export default function RouteDetails({
         </p>
       )}
       <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <Book leg={row.buy} buy />
-        <Book leg={row.sell} buy={false} />
+        <Book leg={row.buy} buy maker={row.metrics?.makerSide === "buy"} />
+        <Book
+          leg={row.sell}
+          buy={false}
+          maker={row.metrics?.makerSide === "sell"}
+        />
       </div>
-      <section className="mt-4 rounded-xl border border-border p-4">
-        <h3 className="font-semibold">История разницы цен</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          До 6 ч · выборочные наблюдения раз в 30 с. Пропуски данных не
-          соединяются.
-        </p>
-        {history.isPending ? (
-          <p role="status" className="py-6 text-sm text-muted-foreground">
-            Загрузка истории…
+      <StrategyDetails row={row} />
+      {classic(row.strategy) ? (
+        <section className="mt-4 rounded-xl border border-border p-4">
+          <h3 className="font-semibold">История разницы цен</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            До 6 ч · выборочные наблюдения раз в 30 с. Пропуски данных не
+            соединяются.
           </p>
-        ) : history.isError ? (
-          <p role="alert" className="py-6 text-sm text-destructive">
-            История временно недоступна.
-          </p>
-        ) : (
-          <HistoryGraph history={history.data} />
-        )}
-      </section>
+          {history.isPending ? (
+            <p role="status" className="py-6 text-sm text-muted-foreground">
+              Загрузка истории…
+            </p>
+          ) : history.isError ? (
+            <p role="alert" className="py-6 text-sm text-destructive">
+              История временно недоступна.
+            </p>
+          ) : (
+            <HistoryGraph history={history.data} />
+          )}
+        </section>
+      ) : null}
     </dialog>
   );
 }

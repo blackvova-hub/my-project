@@ -25,26 +25,28 @@ type Depth struct {
 	Asks []market.Level `json:"asks"`
 }
 type Snapshot struct {
-	Total            int                  `json:"total"`
-	Offset           int                  `json:"offset"`
-	UniverseMode     string               `json:"universeMode"`
-	Books            map[string]Depth     `json:"books"`
-	Rows             []engine.Opportunity `json:"rows"`
-	Sources          []market.Status      `json:"sources"`
-	At               int64                `json:"at"`
-	Assets           []string             `json:"assets"`
-	ConfiguredAssets []string             `json:"configuredAssets"`
-	Transport        string               `json:"transport"`
+	ExternalSources  []market.ExternalStatus `json:"externalSources,omitempty"`
+	Total            int                     `json:"total"`
+	Offset           int                     `json:"offset"`
+	UniverseMode     string                  `json:"universeMode"`
+	Books            map[string]Depth        `json:"books"`
+	Rows             []engine.Opportunity    `json:"rows"`
+	Sources          []market.Status         `json:"sources"`
+	At               int64                   `json:"at"`
+	Assets           []string                `json:"assets"`
+	ConfiguredAssets []string                `json:"configuredAssets"`
+	Transport        string                  `json:"transport"`
 }
 type Service struct {
-	Redis     *redis.Client
-	Universe  []string
-	mu        sync.RWMutex
-	books     []market.Book
-	sources   []market.Status
-	since     map[string]int64
-	at        int64
-	transport string
+	Alternatives func() market.AlternativeData
+	Redis        *redis.Client
+	Universe     []string
+	mu           sync.RWMutex
+	books        []market.Book
+	sources      []market.Status
+	since        map[string]int64
+	at           int64
+	transport    string
 }
 
 func New(r *redis.Client) *Service {
@@ -165,7 +167,16 @@ func (s *Service) Dataset(q engine.Query, now time.Time) Snapshot {
 	sort.Strings(d.Assets)
 	limit := q.Limit
 	q.Limit = 0 // Sort and count the complete universe before pagination.
-	d.Rows = engine.Scan(s.books, q, now)
+	if q.Strategy == "redemption" || q.Strategy == "hedged-lp" {
+		aux := market.AlternativeData{}
+		if s.Alternatives != nil {
+			aux = s.Alternatives()
+		}
+		d.ExternalSources = aux.Sources
+		d.Rows = engine.ScanAlternatives(s.books, q, aux, now)
+	} else {
+		d.Rows = engine.Scan(s.books, q, now)
+	}
 	for n := range d.Rows {
 		d.Rows[n].Since = s.since[d.Rows[n].ID]
 	}
@@ -206,9 +217,13 @@ func (s *Service) Dataset(q engine.Query, now time.Time) Snapshot {
 	for n := range d.Sources {
 		st := &d.Sources[n]
 		st.Books = 0
+		st.FundingBooks = 0
 		for _, b := range s.books {
 			if b.Instrument.Exchange == st.Exchange && b.Instrument.Market == st.Market && b.Fresh(now, time.Duration(q.MaxAgeMS)*time.Millisecond) {
 				st.Books++
+				if f := b.Funding; f != nil && market.Finite(f.Rate) && f.NextAt > now.UnixMilli() && f.IntervalMS >= 3600000 && f.IntervalMS <= 86400000 && f.ObservedAt <= now.UnixMilli()+2000 && now.UnixMilli()-f.ObservedAt <= 120000 {
+					st.FundingBooks++
+				}
 			}
 		}
 		if st.State == "live" && st.Books == 0 {
@@ -285,7 +300,16 @@ func (s *Service) Handler() http.Handler {
 			reply(w, 400, map[string]string{"error": err.Error()})
 			return
 		}
-		reply(w, 200, s.Dataset(q, time.Now()))
+		d := s.Dataset(q, time.Now())
+		if q.Budget || engine.IsSpecial(q.Strategy) {
+			// Request deeper books even when the threshold currently hides a
+			// candidate. Otherwise a one-level feed could never pass the filter.
+			demand := q
+			demand.MinAvailable = 0
+			demand.Limit = 6
+			s.queueDepth(r.Context(), s.Dataset(demand, time.Now()).Rows)
+		}
+		reply(w, 200, d)
 	})
 	mux.HandleFunc("GET /history", func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Query().Get("id")

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -33,6 +34,36 @@ func request(a *API, method, path, body string, headers map[string]string) *http
 }
 func settings() Settings {
 	return Settings{Strategy: "spot-perpetual", Amount: 1000, MinSpread: .1, MaxAgeMS: 10000, HorizonHours: 24, Exchanges: []string{"binance", "bybit"}, Assets: []string{}, InterExchange: true, Sort: "spread", Limit: 100}
+}
+func TestStrategiesAndAvailabilityPreferences(t *testing.T) {
+	s := settings()
+	s.Budget = true
+	s.Network = "all"
+	s.LPRangePct = 10
+	s.MinAvailable = 100
+	for _, strategy := range []string{"spot-perpetual", "spot-spot", "perpetual-perpetual", "cex-cex", "funding", "xemm", "redemption", "hedged-lp"} {
+		s.Strategy = strategy
+		if !validSettings(s) {
+			t.Fatal(strategy)
+		}
+	}
+	for _, strategy := range []string{"funding|xemm", "", "made-up"} {
+		s.Strategy = strategy
+		if validSettings(s) {
+			t.Fatal(strategy)
+		}
+	}
+	s.Strategy = "spot-spot"
+	for _, threshold := range []float64{-1, math.NaN(), math.Inf(1), 1000001} {
+		s.MinAvailable = threshold
+		if validSettings(s) {
+			t.Fatal(threshold)
+		}
+	}
+	s.MinAvailable = 0
+	if !validSettings(s) {
+		t.Fatal("zero should disable availability filtering")
+	}
 }
 func TestUnicodeSearch(t *testing.T) {
 	s := settings()

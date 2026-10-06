@@ -25,6 +25,10 @@ type API struct {
 }
 type ownerKey struct{}
 type Settings struct {
+	MinAvailable  float64  `json:"minAvailable"`
+	Budget        bool     `json:"budget"`
+	Network       string   `json:"network,omitempty"`
+	LPRangePct    float64  `json:"lpRangePct,omitempty"`
 	Simple        bool     `json:"simple"`
 	Search        string   `json:"search,omitempty"`
 	Strategy      string   `json:"strategy"`
@@ -55,7 +59,18 @@ func validSettings(s Settings) bool {
 		return false
 	}
 	finite := func(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
-	if s.Strategy != "spot-perpetual" && s.Strategy != "perpetual-perpetual" && s.Strategy != "spot-spot" {
+	switch s.Strategy {
+	case "spot-perpetual", "perpetual-perpetual", "spot-spot", "cex-cex", "funding", "xemm", "redemption", "hedged-lp":
+	default:
+		return false
+	}
+	if !finite(s.MinAvailable) || s.MinAvailable < 0 || s.MinAvailable > 1000000 {
+		return false
+	}
+	if s.Network != "" && s.Network != "all" && s.Network != "Ethereum" && s.Network != "Arbitrum" {
+		return false
+	}
+	if !finite(s.LPRangePct) || s.LPRangePct < 0 || s.LPRangePct > 80 {
 		return false
 	}
 	if !finite(s.Amount) || s.Amount < 10 || s.Amount > 1000000 || !finite(s.MinSpread) || s.MinSpread < -10 || s.MinSpread > 100 || !finite(s.ExitSpread) || math.Abs(s.ExitSpread) > 50 || s.MaxAgeMS < 1000 || s.MaxAgeMS > 30000 || s.HorizonHours < 1 || s.HorizonHours > 168 || s.Limit < 1 || s.Limit > 300 {

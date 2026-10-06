@@ -259,6 +259,12 @@ func (c *Client) Catalog(ctx context.Context, kind string) ([]market.Instrument,
 			asset = str(x, "baseCoin")
 			quote = str(x, "quoteCoin")
 			enabled = str(x, "status") == "Trading"
+			// TradFi instruments can reuse existing crypto tickers (EWT, ON,
+			// BNC). They are not the same underlying asset.
+			switch strings.ToLower(str(x, "symbolType")) {
+			case "stock", "stocks", "etf", "commodity", "forex", "xstocks", "mstocks", "indices", "index", "bonds":
+				enabled = false
+			}
 			lot := nested(x, "lotSizeFilter")
 			i.Step = number(lot, "qtyStep")
 			i.MinQuantity = number(lot, "minOrderQty")
@@ -275,6 +281,9 @@ func (c *Client) Catalog(ctx context.Context, kind string) ([]market.Instrument,
 			asset = str(x, "baseCcy")
 			quote = str(x, "quoteCcy")
 			enabled = str(x, "state") == "live"
+			if category := str(x, "instCategory"); category != "" && category != "1" {
+				enabled = false
+			}
 			i.Step = number(x, "lotSz")
 			i.MinQuantity = number(x, "minSz")
 			if kind == "perpetual" {
@@ -468,32 +477,7 @@ func (c *Client) Funding(ctx context.Context, instruments []market.Instrument) (
 		byNative[i.Native] = i
 	}
 	if c.Exchange == "okx" {
-		for _, i := range instruments {
-			v, err := c.request(ctx, "GET", base, "/api/v5/public/funding-rate?instId="+url.QueryEscape(i.Native))
-			if err != nil {
-				return out, err
-			}
-			rows := arr(rec(v)["data"])
-			if len(rows) == 0 {
-				continue
-			}
-			x := rec(rows[0])
-			next := int64(number(x, "fundingTime"))
-			interval := int64(number(x, "nextFundingTime")) - next
-			if interval <= 0 {
-				continue
-			}
-			rate, parseErr := strconv.ParseFloat(text(x["fundingRate"]), 64)
-			if parseErr == nil && market.Finite(rate) && math.Abs(rate) <= 0.1 && next > now {
-				out[i.ID] = market.Funding{Rate: rate, NextAt: next, IntervalMS: interval, ObservedAt: now}
-			}
-			select {
-			case <-ctx.Done():
-				return out, ctx.Err()
-			case <-time.After(120 * time.Millisecond):
-			}
-		}
-		return out, nil
+		return c.okxFunding(ctx, instruments)
 	}
 	var v any
 	var err error
@@ -502,7 +486,11 @@ func (c *Client) Funding(ctx context.Context, instruments []market.Instrument) (
 		for _, i := range instruments {
 			symbols = append(symbols, i.Native)
 		}
-		v, err = c.gateRows(ctx, base, path, symbols)
+		if market.AllAssets(c.Allowed) {
+			v, err = c.request(ctx, "GET", base, path)
+		} else {
+			v, err = c.gateRows(ctx, base, path, symbols)
+		}
 	} else {
 		v, err = c.request(ctx, "GET", base, path)
 	}

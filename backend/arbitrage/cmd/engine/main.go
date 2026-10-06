@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"shortlong/arbitrage/internal/alternative"
 	"shortlong/arbitrage/internal/market"
 	"shortlong/arbitrage/internal/service"
 	"sort"
@@ -24,6 +25,9 @@ func main() {
 	r := redis.NewClient(&redis.Options{Addr: addr, Password: os.Getenv("REDIS_PASSWORD"), PoolSize: 8})
 	defer r.Close()
 	s := service.New(r)
+	p := alternative.New()
+	s.Alternatives = p.Snapshot
+	go p.Run(ctx)
 	if raw := os.Getenv("ARBITRAGE_ASSETS"); raw != "" {
 		s.Universe = nil
 		for a := range market.AssetSet(raw) {

@@ -112,3 +112,57 @@ func TestRedisRepublishAfterLostHashKeepsOriginalTimestamp(t *testing.T) {
 		t.Fatal("timestamp fabricated during recovery")
 	}
 }
+func TestRedisDeepSnapshotIsAtomicExpiresAndDisconnectInvalidates(t *testing.T) {
+	addr := os.Getenv("ARBITRAGE_TEST_REDIS_ADDR")
+	if addr == "" {
+		t.Skip("Redis integration not configured")
+	}
+	r := redis.NewClient(&redis.Options{Addr: addr, DB: 13})
+	defer r.Close()
+	ctx := context.Background()
+	c := New(exchanges.New("bybit", "BTC"), r)
+	b := quote(time.Now())
+	c.onBook(b)
+	deep := b
+	deep.Asks = []market.Level{{Price: 101, Quantity: 4}, {Price: 102, Quantity: 5}}
+	deep.DepthSource = "rest-50"
+	c.depth[b.Instrument.ID] = deep
+	c.setStatus("spot", "live", "", 1, false)
+	key := Prefix + "books:bybit"
+	defer r.Del(ctx, key, Prefix+"status:bybit:spot")
+	read := func() market.Book {
+		t.Helper()
+		if err := c.publish(ctx); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := r.HGet(ctx, key, b.Instrument.ID).Result()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got market.Book
+		if json.Unmarshal([]byte(raw), &got) != nil {
+			t.Fatal("bad JSON")
+		}
+		return got
+	}
+	got := read()
+	if len(got.Asks) != 2 || got.Asks[0].Price != 101 || got.SourceAt != deep.SourceAt {
+		t.Fatal("mixed BBO and deeper levels")
+	}
+	deep.SourceAt = time.Now().Add(-6 * time.Second).UnixMilli()
+	deep.ReceivedAt = deep.SourceAt
+	c.depth[b.Instrument.ID] = deep
+	got = read()
+	if len(got.Asks) != 1 || got.Asks[0].Price != 100 {
+		t.Fatal("expired REST snapshot still used")
+	}
+	deep = b
+	deep.DepthSource = "rest-50"
+	c.depth[b.Instrument.ID] = deep
+	c.connections["spot"] = []bool{true}
+	c.shardState("spot", 0, []market.Instrument{b.Instrument}, false)
+	got = read()
+	if got.Valid || len(c.depth) != 0 {
+		t.Fatal("disconnect retained usable depth")
+	}
+}

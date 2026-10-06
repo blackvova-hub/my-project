@@ -74,6 +74,34 @@ func TestPaginationAndAllUniverseMetadata(t *testing.T) {
 		t.Fatal("a shrinking live result must retain its last valid page")
 	}
 }
+func TestHiddenLiquidityCandidateStillQueuesDepth(t *testing.T) {
+	addr := os.Getenv("ARBITRAGE_TEST_REDIS_ADDR")
+	if addr == "" {
+		t.Skip("Redis integration not configured")
+	}
+	r := redis.NewClient(&redis.Options{Addr: addr, DB: 14})
+	defer r.Close()
+	ctx := context.Background()
+	keys := []string{collector.Prefix + "depth-demand:binance", collector.Prefix + "depth-demand:bybit"}
+	defer r.Del(ctx, keys...)
+	now := time.Now()
+	s := New(r)
+	s.at = now.UnixMilli()
+	s.transport = "live"
+	b := sample("binance", "spot", 100, 99, now)
+	b.Asks[0].Quantity = 1
+	hedge := sample("bybit", "perpetual", 102, 101, now)
+	s.books = []market.Book{b, hedge}
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/opportunities?simple=true&budget=true&minAvailable=200", nil))
+	var d Snapshot
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &d) != nil || d.Total != 0 {
+		t.Fatal(w.Body.String())
+	}
+	if r.ZScore(ctx, keys[0], b.Instrument.ID).Err() != nil || r.ZScore(ctx, keys[1], hedge.Instrument.ID).Err() != nil {
+		t.Fatal("filtered candidate never receives deeper snapshot")
+	}
+}
 func TestRedisCollectorCoverageDurationHistoryAndDisconnect(t *testing.T) {
 	addr := os.Getenv("ARBITRAGE_TEST_REDIS_ADDR")
 	if addr == "" {

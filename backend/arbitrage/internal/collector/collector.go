@@ -22,13 +22,18 @@ type Collector struct {
 	dirty       map[string]bool
 	funding     map[string]market.Funding
 	connections map[string][]bool
+	instruments map[string]market.Instrument
+	depth       map[string]market.Book
 }
 
 func New(client *exchanges.Client, rdb *redis.Client) *Collector {
-	return &Collector{Client: client, Redis: rdb, books: map[string]market.Book{}, status: map[string]market.Status{}, dirty: map[string]bool{}, funding: map[string]market.Funding{}, connections: map[string][]bool{}}
+	return &Collector{Client: client, Redis: rdb, books: map[string]market.Book{}, status: map[string]market.Status{}, dirty: map[string]bool{}, funding: map[string]market.Funding{}, connections: map[string][]bool{}, instruments: map[string]market.Instrument{}, depth: map[string]market.Book{}}
 }
 func (c *Collector) Run(ctx context.Context) {
 	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); c.enrichDepth(ctx) }()
+	go func() { defer wg.Done(); c.pollFunding(ctx) }()
 	for _, kind := range []string{"spot", "perpetual"} {
 		wg.Add(1)
 		go func(kind string) { defer wg.Done(); c.runMarket(ctx, kind) }(kind)
@@ -89,6 +94,7 @@ func (c *Collector) shardState(kind string, index int, list []market.Instrument,
 				c.books[i.ID] = b
 				c.dirty[i.ID] = true
 			}
+			delete(c.depth, i.ID)
 		}
 	}
 }
@@ -116,6 +122,16 @@ func (c *Collector) runMarket(ctx context.Context, kind string) {
 			}
 		}
 		c.connections[kind] = make([]bool, len(shards))
+		for id, i := range c.instruments {
+			if i.Market == kind {
+				delete(c.instruments, id)
+				delete(c.depth, id)
+				delete(c.funding, id)
+			}
+		}
+		for _, i := range list {
+			c.instruments[i.ID] = i
+		}
 		c.status[kind] = market.Status{Exchange: c.Client.Exchange, Market: kind, State: "connecting", Instruments: len(list), Connections: len(shards), UpdatedAt: time.Now().UnixMilli()}
 		c.mu.Unlock()
 		sessionCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
@@ -201,6 +217,13 @@ func (c *Collector) publish(ctx context.Context) error {
 	snapshot := make(map[string]market.Book, len(c.books))
 	statuses := make(map[string]market.Status, len(c.status))
 	for id, b := range c.books {
+		if d, ok := c.depth[id]; ok && b.Valid && d.Fresh(time.Now(), 5*time.Second) {
+			b = d
+		}
+		if f, ok := c.funding[id]; ok {
+			copy := f
+			b.Funding = &copy
+		}
 		snapshot[id] = b
 	}
 	for k, st := range c.status {
@@ -218,6 +241,9 @@ func (c *Collector) publish(ctx context.Context) error {
 		if b.Valid && b.Fresh(time.Now(), 30*time.Second) {
 			st := statuses[b.Instrument.Market]
 			st.Books++
+			if b.Funding != nil && time.Now().UnixMilli()-b.Funding.ObservedAt <= 120000 {
+				st.FundingBooks++
+			}
 			st.LastBookAt = max(st.LastBookAt, b.ReceivedAt)
 			statuses[b.Instrument.Market] = st
 		}

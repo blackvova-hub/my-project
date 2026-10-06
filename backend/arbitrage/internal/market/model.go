@@ -36,14 +36,15 @@ type Level struct {
 	Quantity float64 `json:"quantity"`
 }
 type Book struct {
-	Instrument Instrument `json:"instrument"`
-	Bids       []Level    `json:"bids"`
-	Asks       []Level    `json:"asks"`
-	SourceAt   int64      `json:"sourceAt"`
-	ReceivedAt int64      `json:"receivedAt"`
-	Sequence   int64      `json:"sequence"`
-	Valid      bool       `json:"valid"`
-	Funding    *Funding   `json:"funding,omitempty"`
+	DepthSource string     `json:"depthSource,omitempty"`
+	Instrument  Instrument `json:"instrument"`
+	Bids        []Level    `json:"bids"`
+	Asks        []Level    `json:"asks"`
+	SourceAt    int64      `json:"sourceAt"`
+	ReceivedAt  int64      `json:"receivedAt"`
+	Sequence    int64      `json:"sequence"`
+	Valid       bool       `json:"valid"`
+	Funding     *Funding   `json:"funding,omitempty"`
 }
 type Funding struct {
 	Rate       float64 `json:"rate"`
@@ -52,16 +53,17 @@ type Funding struct {
 	ObservedAt int64   `json:"observedAt"`
 }
 type Status struct {
-	Connections int    `json:"connections"`
-	Connected   int    `json:"connected"`
-	Exchange    string `json:"exchange"`
-	Market      string `json:"market"`
-	State       string `json:"state"`
-	Message     string `json:"message,omitempty"`
-	Instruments int    `json:"instruments"`
-	Books       int    `json:"books"`
-	UpdatedAt   int64  `json:"updatedAt"`
-	LastBookAt  int64  `json:"lastBookAt"`
+	FundingBooks int    `json:"fundingBooks"`
+	Connections  int    `json:"connections"`
+	Connected    int    `json:"connected"`
+	Exchange     string `json:"exchange"`
+	Market       string `json:"market"`
+	State        string `json:"state"`
+	Message      string `json:"message,omitempty"`
+	Instruments  int    `json:"instruments"`
+	Books        int    `json:"books"`
+	UpdatedAt    int64  `json:"updatedAt"`
+	LastBookAt   int64  `json:"lastBookAt"`
 }
 
 func Finite(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }

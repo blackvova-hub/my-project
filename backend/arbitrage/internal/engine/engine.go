@@ -13,6 +13,10 @@ import (
 )
 
 type Query struct {
+	MinAvailable  float64  `json:"minAvailable"`
+	Budget        bool     `json:"budget"`
+	Network       string   `json:"network,omitempty"`
+	LPRangePct    float64  `json:"lpRangePct,omitempty"`
 	Simple        bool     `json:"simple"`
 	Search        string   `json:"search,omitempty"`
 	Offset        int      `json:"offset,omitempty"`
@@ -36,6 +40,9 @@ func Defaults() Query {
 	return Query{Simple: true, Strategy: "spot-perpetual", Amount: 1000, MinSpread: 0, MaxAgeMS: 10000, HorizonHours: 24, Exchanges: append([]string{}, market.Exchanges...), InterExchange: true, Sort: "spread", Limit: 100}
 }
 func (q Query) Validate() error {
+	if !market.Finite(q.MinAvailable) || q.MinAvailable < 0 || q.MinAvailable > 1000000 {
+		return errors.New("Минимальная доступность: от 0 до 1 000 000 USDT")
+	}
 	if len(q.Routes) > 200 {
 		return errors.New("Слишком много связок")
 	}
@@ -50,8 +57,14 @@ func (q Query) Validate() error {
 	if q.Offset < 0 || q.Offset > 1000000 || len(q.Search) > 30 || (q.Search != "" && strings.ContainsAny(q.Search, " /:?&")) {
 		return errors.New("Некорректный поиск")
 	}
-	if q.Strategy != "spot-perpetual" && q.Strategy != "perpetual-perpetual" && q.Strategy != "spot-spot" {
+	if !KnownStrategy(q.Strategy) {
 		return errors.New("Некорректный режим")
+	}
+	if q.Network != "" && q.Network != "all" && q.Network != "Ethereum" && q.Network != "Arbitrum" {
+		return errors.New("Некорректная сеть")
+	}
+	if !market.Finite(q.LPRangePct) || q.LPRangePct < 0 || q.LPRangePct > 80 {
+		return errors.New("Некорректный диапазон LP")
 	}
 	if !market.Finite(q.Amount) || q.Amount < 10 || q.Amount > 1000000 {
 		return errors.New("Размер позиции: от 10 до 1 000 000 USDT")
@@ -99,27 +112,29 @@ type Leg struct {
 	Asks       []market.Level    `json:"asks,omitempty"`
 }
 type Opportunity struct {
-	HorizonHours     int      `json:"horizonHours"`
-	ExitSpreadPct    float64  `json:"exitSpreadPct"`
-	ID               string   `json:"id"`
-	Asset            string   `json:"asset"`
-	Strategy         string   `json:"strategy"`
-	Buy              Leg      `json:"buy"`
-	Sell             Leg      `json:"sell"`
-	Quantity         float64  `json:"quantity"`
-	EntrySpreadPct   float64  `json:"entrySpreadPct"`
-	QuoteSpreadPct   float64  `json:"quoteSpreadPct"`
-	EntryFees        float64  `json:"entryFees"`
-	NetEntryPct      float64  `json:"netEntryPct"`
-	ExitFeesEstimate float64  `json:"exitFeesEstimate"`
-	FundingEstimate  *float64 `json:"fundingEstimate"`
-	FundingEvents    int      `json:"fundingEvents"`
-	ScenarioPnL      *float64 `json:"scenarioPnl"`
-	SpotCyclePnL     *float64 `json:"spotCyclePnl"`
-	DepthUSDT        float64  `json:"depthUsdt"`
-	AgeMS            int64    `json:"ageMs"`
-	Since            int64    `json:"since"`
-	CalculatedAt     int64    `json:"calculatedAt"`
+	Execution        *Execution `json:"execution,omitempty"`
+	Metrics          *Metrics   `json:"metrics,omitempty"`
+	HorizonHours     int        `json:"horizonHours"`
+	ExitSpreadPct    float64    `json:"exitSpreadPct"`
+	ID               string     `json:"id"`
+	Asset            string     `json:"asset"`
+	Strategy         string     `json:"strategy"`
+	Buy              Leg        `json:"buy"`
+	Sell             Leg        `json:"sell"`
+	Quantity         float64    `json:"quantity"`
+	EntrySpreadPct   float64    `json:"entrySpreadPct"`
+	QuoteSpreadPct   float64    `json:"quoteSpreadPct"`
+	EntryFees        float64    `json:"entryFees"`
+	NetEntryPct      float64    `json:"netEntryPct"`
+	ExitFeesEstimate float64    `json:"exitFeesEstimate"`
+	FundingEstimate  *float64   `json:"fundingEstimate"`
+	FundingEvents    int        `json:"fundingEvents"`
+	ScenarioPnL      *float64   `json:"scenarioPnl"`
+	SpotCyclePnL     *float64   `json:"spotCyclePnl"`
+	DepthUSDT        float64    `json:"depthUsdt"`
+	AgeMS            int64      `json:"ageMs"`
+	Since            int64      `json:"since"`
+	CalculatedAt     int64      `json:"calculatedAt"`
 }
 
 func RouteID(buy, sell string) string {
@@ -180,6 +195,12 @@ func funding(f *market.Funding, now time.Time, hours int) (float64, int, bool) {
 	return f.Rate * float64(n), n, true
 }
 func Calculate(b, s market.Book, q Query, now time.Time) (Opportunity, bool) {
+	if q.Budget && q.Simple && (q.Strategy == "spot-perpetual" || q.Strategy == "perpetual-perpetual" || q.Strategy == "spot-spot" || q.Strategy == "cex-cex") {
+		return CalculateAvailable(b, s, q, now)
+	}
+	if q.Budget || IsSpecial(q.Strategy) {
+		return CalculateSized(b, s, q, now)
+	}
 	if b.Instrument.Identity() != s.Instrument.Identity() || b.Instrument.ID == s.Instrument.ID || (q.InterExchange && b.Instrument.Exchange == s.Instrument.Exchange) || !b.Fresh(now, time.Duration(q.MaxAgeMS)*time.Millisecond) || !s.Fresh(now, time.Duration(q.MaxAgeMS)*time.Millisecond) {
 		return Opportunity{}, false
 	}
@@ -274,10 +295,18 @@ func Scan(books []market.Book, q Query, now time.Time) []Opportunity {
 	for _, group := range groups {
 		for _, b := range group {
 			for _, s := range group {
-				if len(routes) > 0 && !routes[RouteID(b.Instrument.ID, s.Instrument.ID)] {
-					continue
+				if q.Strategy == "xemm" {
+					if o, ok := makerSell(b, s, q, now); ok && o.DepthUSDT+1e-9 >= q.MinAvailable && (len(routes) == 0 || routes[o.ID]) {
+						out = append(out, o)
+					}
 				}
 				if o, ok := Calculate(b, s, q, now); ok {
+					if o.DepthUSDT+1e-9 < q.MinAvailable {
+						continue
+					}
+					if len(routes) > 0 && !routes[o.ID] {
+						continue
+					}
 					out = append(out, o)
 				}
 			}
@@ -285,6 +314,9 @@ func Scan(books []market.Book, q Query, now time.Time) []Opportunity {
 	}
 	sort.Slice(out, func(i, j int) bool {
 		a, b := out[i], out[j]
+		if IsSpecial(q.Strategy) && a.Metrics != nil && b.Metrics != nil && a.Metrics.ValuePct != b.Metrics.ValuePct {
+			return a.Metrics.ValuePct > b.Metrics.ValuePct
+		}
 		if q.Sort == "net" && a.NetEntryPct != b.NetEntryPct {
 			return a.NetEntryPct > b.NetEntryPct
 		}
@@ -320,7 +352,7 @@ func Parse(raw map[string][]string) (Query, error) {
 		return v[0]
 	}
 	var err error
-	for key, target := range map[string]*float64{"amount": &q.Amount, "minSpread": &q.MinSpread, "exitSpread": &q.ExitSpread} {
+	for key, target := range map[string]*float64{"amount": &q.Amount, "minAvailable": &q.MinAvailable, "minSpread": &q.MinSpread, "exitSpread": &q.ExitSpread, "lpRangePct": &q.LPRangePct} {
 		if v := get(key); v != "" {
 			*target, err = strconv.ParseFloat(v, 64)
 			if err != nil {
@@ -346,6 +378,13 @@ func Parse(raw map[string][]string) (Query, error) {
 		q.Strategy = v
 	}
 	q.Search = strings.ToUpper(strings.TrimSpace(get("search")))
+	q.Network = get("network")
+	if v := get("budget"); v != "" {
+		q.Budget, err = strconv.ParseBool(v)
+		if err != nil {
+			return q, errors.New("Некорректный расчёт суммы")
+		}
+	}
 	if v := get("routes"); v != "" {
 		q.Routes = strings.Split(v, ",")
 	}

@@ -39,7 +39,8 @@ test("old preferences cannot silently hide simple arbitrage opportunities", () =
   );
   assert.equal(q.get("search"), "INCH");
   assert.equal(q.get("offset"), "100");
-  assert.equal(q.has("amount"), false);
+  assert.equal(q.get("amount"), "1000000");
+  assert.equal(q.get("minAvailable"), "0");
   assert.equal(q.has("feeSpot"), false);
   assert.equal(
     simpleSettings({ ...defaults, exchanges: ["binance"] }).exchanges.length,
@@ -53,6 +54,23 @@ test("invalid and empty numeric input never becomes a zero budget", () => {
     parseDraft({ ...toDraft(defaults), amount: "1000,5" }).settings.amount,
     1000.5,
   );
+});
+test("availability filter survives preferences independently of calculation capital", () => {
+  const s = simpleSettings({ ...defaults, minAvailable: 250.5, amount: 1000 });
+  const q = new URLSearchParams(simpleQuery(s));
+  assert.equal(s.minAvailable, 250.5);
+  assert.equal(q.get("minAvailable"), "250.5");
+  assert.equal(q.get("amount"), "1000");
+  assert.deepEqual(
+    simpleSettings({ ...defaults, strategy: "funding", exchanges: ["bybit"] })
+      .exchanges,
+    ["bybit"],
+  );
+  for (const value of [-1, NaN, Infinity, 1000001])
+    assert.equal(
+      simpleSettings({ ...defaults, minAvailable: value }).minAvailable,
+      0,
+    );
 });
 test("repeated legs reuse the same book while retaining route-specific prices", () => {
   const books = {

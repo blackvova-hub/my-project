@@ -13,6 +13,9 @@ export const exchangeNames: Record<string, string> = {
   bitget: "Bitget",
   gateio: "Gate.io",
   kucoin: "KuCoin",
+  uniswap: "Uniswap v3",
+  Circle: "Circle",
+  Ethena: "Ethena",
 };
 export function identityLabel(identity?: string): string | undefined {
   return identity === "UP:SUPERFORM"
@@ -28,6 +31,10 @@ export function validSearch(search: string): boolean {
   );
 }
 export type Settings = {
+  minAvailable?: number;
+  budget?: boolean;
+  network?: string;
+  lpRangePct?: number;
   simple?: boolean;
   search?: string;
   strategy: string;
@@ -45,10 +52,14 @@ export type Settings = {
   limit: number;
 };
 export const defaults: Settings = {
+  minAvailable: 0,
+  budget: true,
+  network: "all",
+  lpRangePct: 10,
   simple: true,
   search: "",
   strategy: "spot-perpetual",
-  amount: 1000,
+  amount: 100,
   minSpread: 0,
   maxAgeMs: 10000,
   horizonHours: 24,
@@ -67,10 +78,47 @@ export function simpleSettings(saved: Settings | null): Settings {
     ) ?? [];
   return {
     ...defaults,
-    exchanges: selected.length >= 2 ? selected : [...exchanges],
-    strategy: ["spot-perpetual", "perpetual-perpetual", "spot-spot"].includes(
-      saved?.strategy ?? "",
-    )
+    minAvailable:
+      Number.isFinite(saved?.minAvailable) &&
+      saved!.minAvailable! >= 0 &&
+      saved!.minAvailable! <= 1000000
+        ? saved!.minAvailable
+        : 0,
+    exchanges:
+      selected.length >=
+      (["funding", "redemption", "hedged-lp"].includes(saved?.strategy ?? "")
+        ? 1
+        : 2)
+        ? selected
+        : [...exchanges],
+    amount:
+      saved?.budget &&
+      Number.isFinite(saved.amount) &&
+      saved.amount >= 10 &&
+      saved.amount <= 1000000
+        ? saved.amount
+        : defaults.amount,
+    horizonHours:
+      saved?.budget && saved.horizonHours >= 1 && saved.horizonHours <= 168
+        ? saved.horizonHours
+        : 24,
+    network: ["all", "Ethereum", "Arbitrum"].includes(saved?.network ?? "")
+      ? saved!.network
+      : "all",
+    lpRangePct:
+      saved?.lpRangePct && saved.lpRangePct > 0 && saved.lpRangePct <= 80
+        ? saved.lpRangePct
+        : 10,
+    strategy: [
+      "spot-perpetual",
+      "perpetual-perpetual",
+      "spot-spot",
+      "cex-cex",
+      "funding",
+      "xemm",
+      "redemption",
+      "hedged-lp",
+    ].includes(saved?.strategy ?? "")
       ? saved!.strategy
       : defaults.strategy,
     search: saved?.search ?? "",
@@ -82,6 +130,12 @@ export function simpleQuery(
   routes?: string[],
 ): string {
   const p = new URLSearchParams({
+    budget: "true",
+    amount: String(s.amount),
+    minAvailable: String(s.minAvailable ?? 0),
+    horizonHours: String(s.horizonHours),
+    network: s.network ?? "all",
+    lpRangePct: String(s.lpRangePct ?? 10),
     simple: "true",
     strategy: s.strategy,
     exchanges: s.exchanges.join(","),
@@ -140,6 +194,10 @@ export function parseDraft(d: Draft): { settings?: Settings; error?: string } {
   if (assets.length > 100 || assets.some((a) => !/^[A-Z0-9]{1,30}$/.test(a)))
     return { error: "Укажите тикеры монет через пробел или запятую." };
   const s: Settings = {
+    budget: d.budget,
+    minAvailable: d.minAvailable,
+    network: d.network,
+    lpRangePct: d.lpRangePct,
     simple: d.simple,
     search: d.search,
     strategy: d.strategy,
@@ -205,6 +263,48 @@ export type Leg = {
   asks: Level[];
 };
 export type Opportunity = {
+  execution?: {
+    requestedUsdt: number;
+    filledUsdt: number;
+    capacityUsdt: number;
+    fillPct: number;
+    full: boolean;
+    status: string;
+    buyLevels: number;
+    sellLevels: number;
+    buySlippagePct: number;
+    sellSlippagePct: number;
+    depthAt: number;
+  };
+  metrics?: {
+    kind: string;
+    valuePct: number;
+    cashUsdt: number;
+    grossUsdt: number;
+    costsUsdt: number;
+    fundingUsdt: number;
+    fundingEvents: number;
+    horizonHours: number;
+    nextAt?: number;
+    annualFundingPct?: number;
+    makerSide?: string;
+    condition: string;
+    url?: string;
+    network?: string;
+    pool?: string;
+    poolAddress?: string;
+    tvlUsd?: number;
+    historicalApy?: number;
+    lpRangePct?: number;
+    priceLower?: number;
+    priceUpper?: number;
+    hedgeQuantity?: number;
+    residualQuantity?: number;
+    observedAt: number;
+    referenceUsd?: number;
+    discountPct?: number;
+    eligibility?: string;
+  };
   horizonHours: number;
   exitSpreadPct: number;
   id: string;
@@ -228,6 +328,7 @@ export type Opportunity = {
   calculatedAt: number;
 };
 export type Source = {
+  fundingBooks?: number;
   connections?: number;
   connected?: number;
   exchange: string;
@@ -240,6 +341,13 @@ export type Source = {
   lastBookAt: number;
 };
 export type Dataset = {
+  externalSources?: {
+    name: string;
+    state: string;
+    message?: string;
+    observedAt: number;
+    count: number;
+  }[];
   total: number;
   offset: number;
   universeMode: string;
@@ -283,6 +391,18 @@ export function isStale(
   now: number,
   maxAge: number,
 ): boolean {
+  if (row.strategy === "hedged-lp")
+    return (
+      now - row.sell.bookAt > maxAge ||
+      now - row.buy.bookAt > 60000 ||
+      now < row.calculatedAt - 2000
+    );
+  if (row.strategy === "redemption")
+    return (
+      now - row.buy.bookAt > maxAge ||
+      now - row.sell.bookAt > 30000 ||
+      now < row.calculatedAt - 2000
+    );
   return (
     now - Math.min(row.buy.bookAt, row.sell.bookAt) > maxAge ||
     now < row.calculatedAt - 2000

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Route only Gate collector egress through server01's existing awg0 VPN.
+"""Route Gate and public alternative-source egress through server01's awg0 VPN.
 The dedicated Docker address is stable across restarts. No DNS IP hardcoding,
 VPN keys, global default route or existing application networks are modified.
 """
@@ -45,11 +45,19 @@ def main():
                 raise RuntimeError("Policy priority is used by an unrelated rule")
         if not present:
             run("ip", "-4", "rule", "add", "priority", PRIORITY, "from", SOURCE + "/32", "lookup", TABLE)
+        # Engine's public Kraken/DefiLlama/RPC requests use the same working
+        # egress path. Keep a distinct priority and reject unrelated rules.
+        engine_priority, engine_source = "32121", "172.31.254.3"
+        engine_rules = [r for r in rules if str(r.get("priority")) == engine_priority]
+        if any(str(r.get("table")) != TABLE or r.get("src", "").removesuffix("/32") != engine_source or r.get("dst", "all") != "all" for r in engine_rules):
+            raise RuntimeError("Engine policy priority is used by an unrelated rule")
+        if not engine_rules:
+            run("ip", "-4", "rule", "add", "priority", engine_priority, "from", engine_source + "/32", "lookup", TABLE)
         temporary = STATE.with_suffix(".new")
         temporary.write_text(json.dumps({"source": SOURCE, "table": TABLE}))
         temporary.chmod(0o600)
         temporary.replace(STATE)
-        print("Gate collector egress routed through awg0; global default route unchanged")
+        print("Gate and arbitrage public sources routed through awg0; global default route unchanged")
 
 
 if __name__ == "__main__":
