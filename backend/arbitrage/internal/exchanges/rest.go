@@ -369,6 +369,19 @@ func (c *Client) Catalog(ctx context.Context, kind string) ([]market.Instrument,
 			continue
 		}
 		i.Asset = a
+		i.CatalogAt = time.Now().UnixMilli()
+		// Only explicit exchange fields count as a delisting observation.
+		switch c.Exchange {
+		case "bitget":
+			if raw, exists := x["offTime"]; exists {
+				i.DelistingKnown = raw == nil || text(raw) == "" || text(raw) == "0" || num(raw) > 0
+				i.DelistingAt = int64(num(raw))
+			}
+		case "gateio":
+			if _, exists := x["in_delisting"].(bool); kind == "perpetual" && exists {
+				i.DelistingKnown = true
+			}
+		}
 		i.AssetIdentity = market.IdentityFor(c.Exchange, kind, a)
 		i.PriceScale = scale
 		i.QuantityScale *= scale

@@ -43,6 +43,7 @@ export function AnimatedSelect({
   const listboxId = useId();
   const typeahead = useRef({ text: "", at: 0 });
   const [open, setOpen] = useState(false);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [position, setPosition] = useState<{
     left: number;
@@ -168,6 +169,9 @@ export function AnimatedSelect({
   };
 
   const show = () => {
+    // A body portal is inert underneath a native modal dialog's top layer.
+    // Keep the same menu and styling, but render inside its owning dialog.
+    setPortalTarget(buttonRef.current?.closest<HTMLDialogElement>("dialog") ?? document.body);
     updatePosition();
     setActiveIndex(selectedIndex);
     setOpen(true);
@@ -206,7 +210,10 @@ export function AnimatedSelect({
             if (open) selectIndex(activeIndex);
             else show();
           } else if (event.key === "Escape") {
-            if (open) event.stopPropagation();
+            if (open) {
+              event.stopPropagation();
+              event.preventDefault();
+            }
             setOpen(false);
           } else if (event.key === "Tab") {
             setOpen(false);
@@ -353,7 +360,7 @@ export function AnimatedSelect({
                 </motion.div>
               ) : null}
             </AnimatePresence>,
-            document.body,
+            portalTarget ?? document.body,
           )
         : null}
     </>

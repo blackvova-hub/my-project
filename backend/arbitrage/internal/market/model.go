@@ -16,6 +16,9 @@ const DefaultAssets = "*"
 func AllAssets(allowed map[string]bool) bool { return len(allowed) == 0 || allowed["*"] }
 
 type Instrument struct {
+	CatalogAt         int64   `json:"catalogAt,omitempty"`
+	DelistingAt       int64   `json:"delistingAt,omitempty"`
+	DelistingKnown    bool    `json:"delistingKnown,omitempty"`
 	ID                string  `json:"id"`
 	Exchange          string  `json:"exchange"`
 	Market            string  `json:"market"`

@@ -144,6 +144,7 @@ func (a *API) Routes(r chi.Router) {
 		r.Use(a.guard)
 		r.Get("/arbitrage/opportunities", a.opportunities)
 		r.Get("/arbitrage/history", a.history)
+		r.Get("/arbitrage/verification", a.verification)
 		r.Get("/arbitrage/preferences", a.preferences)
 		r.Put("/arbitrage/preferences", a.save)
 	})
@@ -185,6 +186,13 @@ func (a *API) history(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.proxy(w, r, "/history")
+}
+func (a *API) verification(w http.ResponseWriter, r *http.Request) {
+	if !idPattern.MatchString(r.URL.Query().Get("id")) {
+		fail(w, 400, "Некорректная связка")
+		return
+	}
+	a.proxy(w, r, "/verification")
 }
 func (a *API) preferences(w http.ResponseWriter, r *http.Request) {
 	var settings, favorites []byte

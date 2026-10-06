@@ -10,6 +10,7 @@ import (
 	"shortlong/arbitrage/internal/alternative"
 	"shortlong/arbitrage/internal/market"
 	"shortlong/arbitrage/internal/service"
+	"shortlong/arbitrage/internal/verification"
 	"sort"
 	"syscall"
 	"time"
@@ -25,6 +26,7 @@ func main() {
 	r := redis.NewClient(&redis.Options{Addr: addr, Password: os.Getenv("REDIS_PASSWORD"), PoolSize: 8})
 	defer r.Close()
 	s := service.New(r)
+	s.Verifier = verification.New()
 	p := alternative.New()
 	s.Alternatives = p.Snapshot
 	go p.Run(ctx)

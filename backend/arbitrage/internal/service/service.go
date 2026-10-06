@@ -10,6 +10,7 @@ import (
 	"shortlong/arbitrage/internal/collector"
 	"shortlong/arbitrage/internal/engine"
 	"shortlong/arbitrage/internal/market"
+	"shortlong/arbitrage/internal/verification"
 	"sort"
 	"strconv"
 	"sync"
@@ -38,6 +39,7 @@ type Snapshot struct {
 	Transport        string                  `json:"transport"`
 }
 type Service struct {
+	Verifier     *verification.Provider
 	Alternatives func() market.AlternativeData
 	Redis        *redis.Client
 	Universe     []string
@@ -283,6 +285,7 @@ var routePattern = regexp.MustCompile(`^[a-f0-9]{24}$`)
 
 func (s *Service) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /verification", s.verify)
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		s.mu.RLock()
 		at := s.at

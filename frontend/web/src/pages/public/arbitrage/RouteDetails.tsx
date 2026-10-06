@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { X, ExternalLink } from "lucide-react";
 import { http } from "../../../shared/api/http";
 import StrategyDetails from "./StrategyDetails";
+import VerificationDetails from "./VerificationDetails";
 import { marketLabel, classic } from "./strategyModel";
 import {
   exchangeNames,
@@ -269,6 +270,7 @@ export default function RouteDetails({
         />
       </div>
       <StrategyDetails row={row} />
+      <VerificationDetails row={row} outdated={outdated} />
       {classic(row.strategy) ? (
         <section className="mt-4 rounded-xl border border-border p-4">
           <h3 className="font-semibold">История разницы цен</h3>

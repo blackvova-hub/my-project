@@ -22,6 +22,27 @@ import (
 func testAPI(upstream string) *API {
 	return &API{origin: "https://site.test", upstream: upstream, client: &http.Client{Timeout: time.Second}, authenticate: func(*http.Request) (auth.User, error) { return auth.User{ID: "user-a"}, nil }}
 }
+func TestVerificationGatewayRequiresAuthenticationAndValidRoute(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/verification" || r.URL.Query().Get("amount") != "100" {
+			t.Error(r.URL)
+		}
+		respond(w, 200, map[string]any{"netProfit": nil})
+	}))
+	defer upstream.Close()
+	a := testAPI(upstream.URL)
+	if w := request(a, "GET", "/arbitrage/verification?id=invalid&amount=100", "", nil); w.Code != 400 {
+		t.Fatal(w.Code)
+	}
+	path := "/arbitrage/verification?id=0123456789abcdef01234567&amount=100"
+	if w := request(a, "GET", path, "", nil); w.Code != 200 || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal(w.Code)
+	}
+	a.authenticate = func(*http.Request) (auth.User, error) { return auth.User{}, errors.New("unauthenticated") }
+	if w := request(a, "GET", path, "", nil); w.Code != 401 {
+		t.Fatal(w.Code)
+	}
+}
 func router(a *API) http.Handler { r := chi.NewRouter(); a.Routes(r); return r }
 func request(a *API, method, path, body string, headers map[string]string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest(method, path, strings.NewReader(body))

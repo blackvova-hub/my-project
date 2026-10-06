@@ -1,5 +1,34 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { verifiedNetProfit, verificationSnapshotFresh } from "../src/pages/public/arbitrage/verificationModel.ts";
+
+test("metadata refresh and report receipt cannot freshen old quotes", () => {
+  const now = 100000;
+  const path = { checks: [{ key: "freshness", state: "pass", at: now - 1000 }] };
+  assert.equal(verificationSnapshotFresh(now, path, now), true);
+  assert.equal(verificationSnapshotFresh(now, { checks: [{ key: "freshness", state: "pass", at: now - 5001 }] }, now), false);
+  assert.equal(verificationSnapshotFresh(now - 5001, path, now), false);
+  assert.equal(verificationSnapshotFresh(now + 2001, path, now), false);
+  assert.equal(verificationSnapshotFresh(now, { checks: [{ key: "freshness", state: "pass" }] }, now), false);
+});
+
+test("net profit stays hidden until every required check passes", () => {
+  const keys = ["identity", "freshness", "trading", "wallet", "network", "delisting", "vwap", "fees", "account"];
+  const path = { mode: "transfer", state: "verified", netProfit: 2, checks: keys.map((key) => ({ key, state: "pass" })) };
+  assert.equal(verifiedNetProfit(path), 2);
+  for (const key of keys) {
+    for (const state of ["unknown", "fail", "na"]) {
+      assert.equal(verifiedNetProfit({ ...path, checks: path.checks.map((c) => c.key === key ? { ...c, state } : c) }), null);
+    }
+    assert.equal(verifiedNetProfit({ ...path, checks: path.checks.filter((c) => c.key !== key) }), null);
+  }
+  assert.equal(verifiedNetProfit({ ...path, netProfit: null }), null);
+  assert.equal(verifiedNetProfit({ ...path, netProfit: Infinity }), null);
+  assert.equal(verifiedNetProfit({ ...path, state: "incomplete" }), null);
+  assert.equal(verifiedNetProfit({ ...path, checks: [...path.checks, { key: "fees", state: "unknown" }] }), null);
+  const prefunded = { ...path, mode: "prefunded", checks: path.checks.map((c) => ["wallet", "network"].includes(c.key) ? { ...c, state: "na" } : c) };
+  assert.equal(verifiedNetProfit(prefunded), 2);
+});
 import {
   defaults,
   toDraft,

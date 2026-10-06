@@ -48,7 +48,7 @@ const descriptions: Record<string, string> = {
   "perpetual-perpetual":
     "Покупаем фьючерс на одной бирже, продаём фьючерс на другой.",
   "spot-spot":
-    "Покупаем монету на одной бирже, продаём на другой. Средства нужны на обеих биржах.",
+    "Покупаем монету на одной бирже, продаём на другой. В подробностях — перевод или средства на двух биржах.",
 };
 const tabs = [
   { value: "all", label: "Все" },
@@ -374,6 +374,9 @@ function Workspace({
         <p className="arb-description">
           {descriptions[settings.strategy] ??
             strategyDescriptions[settings.strategy]}
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Связки — кандидаты. Актив, исполнение, сети и комиссии проверяются в подробностях.
         </p>
         {notice ? (
           <p role="status" className="mb-3 text-sm text-destructive">

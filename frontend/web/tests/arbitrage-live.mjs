@@ -388,6 +388,60 @@ try {
     await expect(
       page.getByRole("heading", { name: "История разницы цен", exact: true }),
     ).toHaveCount(0);
+    if (strategy === "cex-cex") {
+      const verification = page.locator('[aria-labelledby="arb-verification-title"]');
+      await expect(verification).toBeVisible();
+      await expect(verification.getByText("Чистая прибыль: не подтверждена", { exact: true })).toBeVisible();
+      const candidate = live.rows[0];
+      let assessment;
+      await expect.poll(async () => {
+        const response = await context.request.get(`${base}/api/arbitrage/verification?id=${candidate.id}&strategy=cex-cex&amount=100`);
+        if (response.status() !== 200) return false;
+        assessment = await response.json();
+        return assessment.paths.length >= 2;
+      }, { timeout: 15000 }).toBeTruthy();
+      expect(assessment.paths.every((p) => p.netProfit === null)).toBeTruthy();
+      expect(assessment.paths.find((p) => p.mode === "prefunded").checks.find((c) => c.key === "wallet").state).toBe("na");
+      expect(assessment.paths.filter((p) => p.mode === "transfer").every((p) => p.checks.find((c) => c.key === "wallet").state !== "na")).toBeTruthy();
+      result.verification = assessment;
+      await expect(verification).toContainText("Все комиссии", { timeout: 15000 });
+      await verification.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: resolve(output, "verification-prefunded-green.png") });
+      await verification.getByRole("combobox", { name: "Способ исполнения" }).click();
+      await expect(page.getByRole("option", { name: "Покупка → перевод → продажа", exact: true })).toBeVisible();
+      await verification.getByRole("combobox", { name: "Способ исполнения" }).press("Escape");
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await expect(page.getByRole("listbox", { name: "Способ исполнения" })).toHaveCount(0);
+      await verification.getByRole("combobox", { name: "Способ исполнения" }).click();
+      await page.getByRole("option", { name: "Покупка → перевод → продажа", exact: true }).click();
+      await expect(verification).toContainText("Цена продажи за время перевода изменится");
+      await page.screenshot({ path: resolve(output, "verification-transfer-green.png") });
+      await verification.getByLabel("Сумма проверки, USDT", { exact: true }).fill("0");
+      await expect(verification.getByRole("alert")).toContainText("от 10");
+      await expect(verification).not.toContainText("VWAP покупки / продажи");
+      await verification.getByLabel("Сумма проверки, USDT", { exact: true }).fill("100");
+      await expect(verification).toContainText("Все комиссии", { timeout: 15000 });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await verification.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+      await page.screenshot({ path: resolve(output, "verification-mobile-green.png") });
+      await page.setViewportSize({ width: 1536, height: 1024 });
+      for (const [theme, label] of [["light", "Светлая тема"], ["dark", "Тёмная тема"], ["green", "Фирменная зелёная тема"]]) {
+        await page.keyboard.press("Escape");
+        await page.getByRole("button", { name: label, exact: true }).click();
+        await page.locator(".arb-table tbody tr").first().getByRole("button", { name: /^Подробности/ }).click();
+        await expect(verification).toContainText("Все комиссии", { timeout: 15000 });
+        await verification.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: resolve(output, `verification-${theme}.png`) });
+        const input = verification.getByLabel("Сумма проверки, USDT", { exact: true });
+        await input.focus();
+        expect(await input.evaluate((el) => el.getBoundingClientRect().height)).toBe(42);
+        await expect(verification.getByRole("combobox", { name: "Способ исполнения" })).toBeVisible();
+      }
+      check("verification separates prefunded and transfer paths; unknown facts never produce net profit");
+      check("verification amount validation, independent budget and mobile layout");
+      check("verification Light Dark Green themes preserve controls and focus");
+    }
     await page.screenshot({ path: resolve(output, `details-${strategy}.png`) });
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 390, height: 844 });
