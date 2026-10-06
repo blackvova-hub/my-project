@@ -1,10 +1,44 @@
 <clickhouse>
   <max_server_memory_usage>4294967296</max_server_memory_usage>
-  <background_pool_size>4</background_pool_size>
-  <background_merges_mutations_concurrency_ratio>8</background_merges_mutations_concurrency_ratio>
+  <!-- Two merge threads, at most four merge contexts inside the 3 CPU quota. -->
+  <background_pool_size>2</background_pool_size>
+  <background_merges_mutations_concurrency_ratio>2</background_merges_mutations_concurrency_ratio>
+  <merge_tree>
+    <number_of_free_entries_in_pool_to_lower_max_size_of_merge>2</number_of_free_entries_in_pool_to_lower_max_size_of_merge>
+    <number_of_free_entries_in_pool_to_execute_mutation>2</number_of_free_entries_in_pool_to_execute_mutation>
+    <number_of_free_entries_in_pool_to_execute_optimize_entire_partition>2</number_of_free_entries_in_pool_to_execute_optimize_entire_partition>
+  </merge_tree>
   <background_schedule_pool_size>8</background_schedule_pool_size>
   <background_buffer_flush_schedule_pool_size>2</background_buffer_flush_schedule_pool_size>
   <background_message_broker_schedule_pool_size>2</background_message_broker_schedule_pool_size>
   <background_distributed_schedule_pool_size>2</background_distributed_schedule_pool_size>
   <logger><level>warning</level><size>20M</size><count>3</count></logger>
+  <total_memory_profiler_step>0</total_memory_profiler_step>
+  <!-- Profiling can be enabled temporarily during a specific investigation. -->
+  <trace_log remove="1" />
+  <processors_profile_log remove="1" />
+  <query_metric_log remove="1" />
+  <asynchronous_metric_log remove="1" />
+  <text_log replace="1">
+    <database>system</database><table>text_log</table>
+    <level>warning</level>
+    <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+    <engine>ENGINE = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + INTERVAL 3 DAY SETTINGS merge_max_block_size = 1024, ttl_only_drop_parts = 1</engine>
+  </text_log>
+  <metric_log replace="1">
+    <database>system</database><table>metric_log</table>
+    <collect_interval_milliseconds>15000</collect_interval_milliseconds>
+    <flush_interval_milliseconds>60000</flush_interval_milliseconds>
+    <engine>ENGINE = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + INTERVAL 3 DAY SETTINGS merge_max_block_size = 1024, ttl_only_drop_parts = 1</engine>
+  </metric_log>
+  <query_log replace="1">
+    <database>system</database><table>query_log</table>
+    <engine>ENGINE = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + INTERVAL 7 DAY SETTINGS ttl_only_drop_parts = 1</engine>
+    <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+  </query_log>
+  <part_log replace="1">
+    <database>system</database><table>part_log</table>
+    <engine>ENGINE = MergeTree PARTITION BY event_date ORDER BY event_time TTL event_date + INTERVAL 7 DAY SETTINGS ttl_only_drop_parts = 1</engine>
+    <flush_interval_milliseconds>30000</flush_interval_milliseconds>
+  </part_log>
 </clickhouse>

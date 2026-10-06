@@ -47,6 +47,19 @@ invented candles. `processedRows` is ingestion progress, not a unique-row count.
 
 ## Operations
 
+ClickHouse uses two background merge threads (four concurrent contexts) inside
+the existing 3 CPU / 6 GiB container budget. Memory/CPU stack profiling and
+processor profiling are disabled. Warning/error text and metrics have daily
+partitions with 3-day TTL; query/part logs have 7-day TTL. Metric sampling is
+every 15 seconds. Current system counters and application monitoring remain
+available. The retention boundary is a UTC day, with expired parts removed
+asynchronously, rather than an exact rolling-hour cutoff.
+
+The 2026-10-06 migration preserved old log tables with `DETACH PERMANENTLY`;
+their data still occupies the archive disk and can be reattached. Details,
+measurements, restoration and isolated tests:
+[ClickHouse load report](../../../docs/server/clickhouse-load-2026-10-06.md).
+
 Run on the server:
 
 ```sh

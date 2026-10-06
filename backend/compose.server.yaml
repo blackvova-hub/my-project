@@ -38,6 +38,7 @@ services:
     volumes: !override
       - /srv/archive/shortlong-clickhouse:/var/lib/clickhouse
       - ./deploy/server/clickhouse.xml:/etc/clickhouse-server/config.d/server-budget.xml:ro
+      - ./deploy/server/clickhouse-users.xml:/etc/clickhouse-server/users.d/server-budget.xml:ro
   backtest_worker:
     cpus: "1.5"
     environment:
