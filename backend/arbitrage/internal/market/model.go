@@ -10,8 +10,10 @@ import (
 
 var Exchanges = []string{"binance", "bybit", "okx", "bitget", "gateio", "kucoin"}
 
-// Deliberate reviewed universe. Unknown same-name tokens are not silently matched.
-const DefaultAssets = "BTC,ETH,SOL,XRP,DOGE,ADA,AVAX,LINK,DOT,LTC,BCH,TRX,TON,SUI,APT,ARB,OP,NEAR,UNI,AAVE,ATOM,ETC,FIL,ICP,INJ,SEI,PEPE,SHIB,BONK,FLOKI"
+// Discover all active USDT markets. Numeric prefixes are never removed blindly.
+const DefaultAssets = "*"
+
+func AllAssets(allowed map[string]bool) bool { return len(allowed) == 0 || allowed["*"] }
 
 type Instrument struct {
 	ID                string  `json:"id"`
@@ -19,6 +21,7 @@ type Instrument struct {
 	Market            string  `json:"market"`
 	Native            string  `json:"nativeSymbol"`
 	Asset             string  `json:"asset"`
+	AssetIdentity     string  `json:"assetIdentity,omitempty"`
 	PriceScale        float64 `json:"priceScale"`
 	QuantityScale     float64 `json:"quantityScale"`
 	Step              float64 `json:"quantityStep"`
@@ -49,6 +52,8 @@ type Funding struct {
 	ObservedAt int64   `json:"observedAt"`
 }
 type Status struct {
+	Connections int    `json:"connections"`
+	Connected   int    `json:"connected"`
 	Exchange    string `json:"exchange"`
 	Market      string `json:"market"`
 	State       string `json:"state"`
@@ -73,13 +78,16 @@ func Asset(base string, allowed map[string]bool) (string, float64, bool) {
 	if base == "XBT" {
 		base = "BTC"
 	}
-	if allowed[base] {
+	if allowed[base] && !AllAssets(allowed) {
 		return base, 1, true
 	}
 	// Only reviewed bundled contracts. Never strip numeric prefixes in general.
 	bundles := map[string]string{"1000PEPE": "PEPE", "1000SHIB": "SHIB", "1000BONK": "BONK", "1000FLOKI": "FLOKI"}
-	if a, ok := bundles[base]; ok && allowed[a] {
+	if a, ok := bundles[base]; ok && (AllAssets(allowed) || allowed[a]) {
 		return a, 1000, true
+	}
+	if AllAssets(allowed) && len(base) > 0 && len(base) <= 30 && !strings.ContainsAny(base, " /:?&") {
+		return base, 1, true
 	}
 	return "", 0, false
 }
@@ -94,6 +102,28 @@ func AssetSet(raw string) map[string]bool {
 	return out
 }
 func (i Instrument) Key() string { return i.Exchange + ":" + i.Market + ":" + i.Native }
+
+// Explicit collision registry, backed by issuer/exchange listing notices.
+// UP is Superform on Bitget/KuCoin spot and Unitas on OKX/Gate. Unreviewed UP
+// listings are kept in the catalog but cannot be matched by ticker alone.
+func IdentityFor(exchange, kind, asset string) string {
+	if asset != "UP" {
+		return asset
+	}
+	if (exchange == "bitget" || exchange == "kucoin") && kind == "spot" {
+		return "UP:SUPERFORM"
+	}
+	if exchange == "okx" || exchange == "gateio" {
+		return "UP:UNITAS"
+	}
+	return "UP:" + exchange + ":" + kind
+}
+func (i Instrument) Identity() string {
+	if i.AssetIdentity != "" {
+		return i.AssetIdentity
+	}
+	return IdentityFor(i.Exchange, i.Market, i.Asset)
+}
 
 // Conservatively use the older exchange/receipt timestamp for quote ageing.
 func (b Book) QuoteAt() int64 {

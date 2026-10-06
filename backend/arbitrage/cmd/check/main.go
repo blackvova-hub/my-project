@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"shortlong/arbitrage/internal/collector"
 	"shortlong/arbitrage/internal/exchanges"
 	"shortlong/arbitrage/internal/market"
 	"sync"
@@ -29,7 +30,7 @@ func main() {
 			wg.Add(1)
 			go func(e, k string) {
 				defer wg.Done()
-				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 				defer cancel()
 				c := exchanges.New(e, market.DefaultAssets)
 				r := result{Exchange: e, Market: k}
@@ -38,24 +39,36 @@ func main() {
 				if err != nil {
 					r.Error = err.Error()
 				} else {
-					if k == "perpetual" {
-						f, er := c.Funding(ctx, list)
-						r.Funding = len(f)
-						if er != nil {
-							r.Error = er.Error()
-						}
-					}
 					seen := map[string]bool{}
-					err = c.Stream(ctx, k, list, func(b market.Book) {
-						seen[b.Instrument.ID] = true
-						if len(seen) == len(list) {
-							cancel()
+					var seenMu sync.Mutex
+					var streams sync.WaitGroup
+					for _, shard := range collector.Shards(e, list) {
+						if ctx.Err() != nil {
+							break
 						}
-					}, func(bool) {})
-					r.Books = len(seen)
-					if err != nil && ctx.Err() == nil {
-						r.Error = err.Error()
+						streams.Add(1)
+						go func(shard []market.Instrument) {
+							defer streams.Done()
+							streamErr := c.Stream(ctx, k, shard, func(b market.Book) {
+								seenMu.Lock()
+								defer seenMu.Unlock()
+								if b.Valid {
+									seen[b.Instrument.ID] = true
+								}
+								if len(seen) == len(list) {
+									cancel()
+								}
+							}, func(bool) {})
+							if streamErr != nil && ctx.Err() == nil {
+								seenMu.Lock()
+								r.Error = streamErr.Error()
+								seenMu.Unlock()
+							}
+						}(shard)
+						time.Sleep(750 * time.Millisecond)
 					}
+					streams.Wait()
+					r.Books = len(seen)
 				}
 				mu.Lock()
 				out = append(out, r)

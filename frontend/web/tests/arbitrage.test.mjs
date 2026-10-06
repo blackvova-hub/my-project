@@ -8,7 +8,44 @@ import {
   isStale,
   duration,
   hydrateDataset,
+  simpleSettings,
+  simpleQuery,
+  validSearch,
 } from "../src/pages/public/arbitrage/model.ts";
+test("search accepts real Unicode tickers and rejects separators and oversized input", () => {
+  for (const value of ["", "BTC", "1INCH", "哈基米"])
+    assert.equal(validSearch(value), true);
+  for (const value of ["BTC/USDT", "BTC ETH", "?", "哈".repeat(11)])
+    assert.equal(validSearch(value), false);
+});
+test("old preferences cannot silently hide simple arbitrage opportunities", () => {
+  const s = simpleSettings({
+    ...defaults,
+    amount: 1000000,
+    minSpread: 90,
+    feeSpot: 1,
+    sort: "net",
+    assets: ["BTC"],
+    exchanges: ["binance", "bybit"],
+  });
+  assert.equal(s.simple, true);
+  assert.equal(s.minSpread, 0);
+  assert.equal(s.sort, "spread");
+  assert.deepEqual(s.assets, []);
+  assert.equal(s.feeSpot, undefined);
+  assert.deepEqual(s.exchanges, ["binance", "bybit"]);
+  const q = new URLSearchParams(
+    simpleQuery({ ...s, search: "INCH" }, 100, ["a".repeat(24)]),
+  );
+  assert.equal(q.get("search"), "INCH");
+  assert.equal(q.get("offset"), "100");
+  assert.equal(q.has("amount"), false);
+  assert.equal(q.has("feeSpot"), false);
+  assert.equal(
+    simpleSettings({ ...defaults, exchanges: ["binance"] }).exchanges.length,
+    6,
+  );
+});
 test("invalid and empty numeric input never becomes a zero budget", () => {
   for (const amount of ["", " ", "NaN", "Infinity", "9", "1000001"])
     assert.ok(parseDraft({ ...toDraft(defaults), amount }).error);

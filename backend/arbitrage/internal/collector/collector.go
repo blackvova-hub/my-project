@@ -14,17 +14,18 @@ import (
 const Prefix = "arbitrage:v1:"
 
 type Collector struct {
-	Client  *exchanges.Client
-	Redis   *redis.Client
-	mu      sync.Mutex
-	books   map[string]market.Book
-	status  map[string]market.Status
-	dirty   map[string]bool
-	funding map[string]market.Funding
+	Client      *exchanges.Client
+	Redis       *redis.Client
+	mu          sync.Mutex
+	books       map[string]market.Book
+	status      map[string]market.Status
+	dirty       map[string]bool
+	funding     map[string]market.Funding
+	connections map[string][]bool
 }
 
 func New(client *exchanges.Client, rdb *redis.Client) *Collector {
-	return &Collector{Client: client, Redis: rdb, books: map[string]market.Book{}, status: map[string]market.Status{}, dirty: map[string]bool{}, funding: map[string]market.Funding{}}
+	return &Collector{Client: client, Redis: rdb, books: map[string]market.Book{}, status: map[string]market.Status{}, dirty: map[string]bool{}, funding: map[string]market.Funding{}, connections: map[string][]bool{}}
 }
 func (c *Collector) Run(ctx context.Context) {
 	var wg sync.WaitGroup
@@ -46,10 +47,55 @@ func (c *Collector) Run(ctx context.Context) {
 		}
 	}
 }
+
+// Conservative per-connection topic limits; reconnects affect only one shard.
+func Shards(exchange string, list []market.Instrument) [][]market.Instrument {
+	size := map[string]int{"binance": 200, "bybit": 100, "okx": 100, "bitget": 40, "gateio": 50, "kucoin": 40}[exchange]
+	if size == 0 {
+		size = 40
+	}
+	out := [][]market.Instrument{}
+	for start := 0; start < len(list); start += size {
+		out = append(out, list[start:min(start+size, len(list))])
+	}
+	return out
+}
+func (c *Collector) shardState(kind string, index int, list []market.Instrument, up bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	active := c.connections[kind]
+	active[index] = up
+	st := c.status[kind]
+	st.Connected = 0
+	for _, connected := range active {
+		if connected {
+			st.Connected++
+		}
+	}
+	st.State = "connecting"
+	if st.Connected > 0 {
+		st.State = "live"
+	}
+	st.Message = ""
+	if st.Connected < st.Connections {
+		st.Message = "Some streams are connecting or reconnecting"
+	}
+	st.UpdatedAt = time.Now().UnixMilli()
+	c.status[kind] = st
+	if !up {
+		for _, i := range list {
+			if b, ok := c.books[i.ID]; ok {
+				b.Valid = false
+				c.books[i.ID] = b
+				c.dirty[i.ID] = true
+			}
+		}
+	}
+}
 func (c *Collector) runMarket(ctx context.Context, kind string) {
 	backoff := time.Second
 	for ctx.Err() == nil {
-		c.setStatus(kind, "connecting", "", 0, false)
+		c.setStatus(kind, "connecting", "", 0, true)
 		list, err := c.Client.Catalog(ctx, kind)
 		if err != nil {
 			c.setStatus(kind, "error", err.Error(), 0, true)
@@ -61,59 +107,48 @@ func (c *Collector) runMarket(ctx context.Context, kind string) {
 			continue
 		}
 		backoff = time.Second
-		c.setStatus(kind, "connecting", "", len(list), true)
+		shards := Shards(c.Client.Exchange, list)
+		c.mu.Lock()
+		// A complete redis snapshot also removes delisted instruments.
+		for id, b := range c.books {
+			if b.Instrument.Market == kind {
+				delete(c.books, id)
+			}
+		}
+		c.connections[kind] = make([]bool, len(shards))
+		c.status[kind] = market.Status{Exchange: c.Client.Exchange, Market: kind, State: "connecting", Instruments: len(list), Connections: len(shards), UpdatedAt: time.Now().UnixMilli()}
+		c.mu.Unlock()
 		sessionCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
-		var fw sync.WaitGroup
-		if kind == "perpetual" {
-			fw.Add(1)
-			go func() {
-				defer fw.Done()
+		var workers sync.WaitGroup
+		for index, shard := range shards {
+			if !sleep(sessionCtx, 750*time.Millisecond) {
+				break
+			}
+			workers.Add(1)
+			go func(index int, shard []market.Instrument) {
+				defer workers.Done()
+				retry := time.Second
 				for sessionCtx.Err() == nil {
-					funds, e := c.Client.Funding(sessionCtx, list)
-					c.mu.Lock()
-					if e == nil {
-						for id, f := range funds {
-							c.funding[id] = f
-							if b, ok := c.books[id]; ok {
-								copy := f
-								b.Funding = &copy
-								c.books[id] = b
-								c.dirty[id] = true
-							}
+					err := c.Client.Stream(sessionCtx, kind, shard, c.onBook, func(up bool) {
+						c.shardState(kind, index, shard, up)
+						if up {
+							retry = time.Second
 						}
+					})
+					c.shardState(kind, index, shard, false)
+					if err != nil && sessionCtx.Err() == nil {
+						log.Printf("stream %s/%s shard %d: %v", c.Client.Exchange, kind, index, err)
 					}
-					c.mu.Unlock()
-					if e != nil && sessionCtx.Err() == nil {
-						log.Printf("funding %s: %v", c.Client.Exchange, e)
-					}
-					if !sleep(sessionCtx, 30*time.Second) {
+					if !sleep(sessionCtx, retry) {
 						return
 					}
+					retry = min(retry*2, 30*time.Second)
 				}
-			}()
+			}(index, shard)
 		}
-		err = c.Client.Stream(sessionCtx, kind, list, c.onBook, func(up bool) {
-			state := "connecting"
-			if up {
-				state = "live"
-			}
-			c.setStatus(kind, state, "", len(list), !up)
-		})
+		<-sessionCtx.Done()
 		cancel()
-		fw.Wait()
-		if ctx.Err() != nil {
-			return
-		}
-		message := "Соединение восстанавливается"
-		if err != nil {
-			message = "Поток недоступен; повторное подключение"
-			log.Printf("stream %s/%s: %v", c.Client.Exchange, kind, err)
-		}
-		c.setStatus(kind, "error", message, len(list), true)
-		if !sleep(ctx, backoff) {
-			return
-		}
-		backoff = min(backoff*2, 30*time.Second)
+		workers.Wait()
 	}
 }
 func sleep(ctx context.Context, d time.Duration) bool {
@@ -160,36 +195,47 @@ func (c *Collector) onBook(b market.Book) {
 	c.dirty[b.Instrument.ID] = true
 }
 func (c *Collector) publish(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	pipe := c.Redis.Pipeline()
-	key := Prefix + "books:" + c.Client.Exchange
-	// Full small snapshots also recover a Redis restart or key eviction without
-	// waiting for an instrument to change. This does not refresh book timestamps.
-	for id := range c.books {
-		b, err := json.Marshal(c.books[id])
+	snapshot := make(map[string]market.Book, len(c.books))
+	statuses := make(map[string]market.Status, len(c.status))
+	for id, b := range c.books {
+		snapshot[id] = b
+	}
+	for k, st := range c.status {
+		statuses[k] = st
+	}
+	clear(c.dirty)
+	c.mu.Unlock()
+	values := make(map[string]any, len(snapshot))
+	for id, b := range snapshot {
+		raw, err := json.Marshal(b)
 		if err != nil {
 			return err
 		}
-		pipe.HSet(ctx, key, id, b)
-	}
-	pipe.Expire(ctx, key, 30*time.Second)
-	for kind, s := range c.status {
-		s.UpdatedAt = time.Now().UnixMilli()
-		for _, b := range c.books {
-			if b.Instrument.Market == kind && b.Valid {
-				s.Books++
-				s.LastBookAt = max(s.LastBookAt, b.ReceivedAt)
-			}
+		values[id] = raw
+		if b.Valid && b.Fresh(time.Now(), 30*time.Second) {
+			st := statuses[b.Instrument.Market]
+			st.Books++
+			st.LastBookAt = max(st.LastBookAt, b.ReceivedAt)
+			statuses[b.Instrument.Market] = st
 		}
-		data, _ := json.Marshal(s)
+	}
+	// Atomic replacement avoids stale delisted fields and uses one HSET rather
+	// than thousands of Redis commands. Original quote times are preserved.
+	pipe := c.Redis.TxPipeline()
+	key := Prefix + "books:" + c.Client.Exchange
+	pipe.Del(ctx, key)
+	if len(values) > 0 {
+		pipe.HSet(ctx, key, values)
+		pipe.Expire(ctx, key, 30*time.Second)
+	}
+	for kind, st := range statuses {
+		st.UpdatedAt = time.Now().UnixMilli()
+		data, _ := json.Marshal(st)
 		pipe.Set(ctx, Prefix+"status:"+c.Client.Exchange+":"+kind, data, 10*time.Second)
 	}
-	if _, err := pipe.Exec(ctx); err != nil {
-		return err
-	}
-	clear(c.dirty)
-	return nil
+	_, err := pipe.Exec(ctx)
+	return err
 }

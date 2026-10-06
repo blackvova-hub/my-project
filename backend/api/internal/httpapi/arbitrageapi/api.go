@@ -25,6 +25,8 @@ type API struct {
 }
 type ownerKey struct{}
 type Settings struct {
+	Simple        bool     `json:"simple"`
+	Search        string   `json:"search,omitempty"`
 	Strategy      string   `json:"strategy"`
 	Amount        float64  `json:"amount"`
 	MinSpread     float64  `json:"minSpread"`
@@ -46,8 +48,12 @@ type Preferences struct {
 
 var idPattern = regexp.MustCompile(`^[a-f0-9]{24}$`)
 var assetPattern = regexp.MustCompile(`^[A-Z0-9]{1,30}$`)
+var searchPattern = regexp.MustCompile(`^[\p{L}\p{N}]{1,30}$`)
 
 func validSettings(s Settings) bool {
+	if len(s.Search) > 30 || (s.Search != "" && !searchPattern.MatchString(s.Search)) {
+		return false
+	}
 	finite := func(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
 	if s.Strategy != "spot-perpetual" && s.Strategy != "perpetual-perpetual" && s.Strategy != "spot-spot" {
 		return false
@@ -128,7 +134,7 @@ func (a *API) Routes(r chi.Router) {
 	})
 }
 func (a *API) proxy(w http.ResponseWriter, r *http.Request, path string) {
-	if len(r.URL.RawQuery) > 4096 {
+	if len(r.URL.RawQuery) > 8192 {
 		fail(w, 400, "Слишком длинный запрос")
 		return
 	}

@@ -23,7 +23,7 @@ func TestHedgedScenarioFourFeesAndFunding(t *testing.T) {
 	b := book("binance", "spot", 100, 99, now)
 	s := book("bybit", "perpetual", 102, 101, now)
 	s.Funding = &market.Funding{Rate: .0001, NextAt: now.Add(8 * time.Hour).UnixMilli(), IntervalMS: 8 * 3600000, ObservedAt: now.UnixMilli()}
-	q := Defaults()
+	q := legacyDefaults()
 	o, ok := Calculate(b, s, q, now)
 	if !ok {
 		t.Fatal("route rejected")
@@ -47,7 +47,7 @@ func TestIndependentFundingSchedulesAndSigns(t *testing.T) {
 	s := book("bybit", "perpetual", 102, 101, now)
 	b.Funding = &market.Funding{Rate: .0002, NextAt: now.Add(time.Hour).UnixMilli(), IntervalMS: 3600000, ObservedAt: now.UnixMilli()}
 	s.Funding = &market.Funding{Rate: -.0001, NextAt: now.Add(4 * time.Hour).UnixMilli(), IntervalMS: 8 * 3600000, ObservedAt: now.UnixMilli()}
-	q := Defaults()
+	q := legacyDefaults()
 	q.Strategy = "perpetual-perpetual"
 	o, ok := Calculate(b, s, q, now)
 	if !ok {
@@ -62,7 +62,7 @@ func TestMissingOrStaleFundingIsUnknownNotZero(t *testing.T) {
 	now := time.Now()
 	b := book("binance", "spot", 100, 99, now)
 	s := book("bybit", "perpetual", 102, 101, now)
-	q := Defaults()
+	q := legacyDefaults()
 	for _, f := range []*market.Funding{nil, {Rate: 0, NextAt: now.Add(time.Hour).UnixMilli(), IntervalMS: 3600000, ObservedAt: now.Add(-3 * time.Minute).UnixMilli()}, {Rate: 0, NextAt: now.Add(-time.Second).UnixMilli(), IntervalMS: 3600000, ObservedAt: now.UnixMilli()}} {
 		s.Funding = f
 		o, ok := Calculate(b, s, q, now)
@@ -75,7 +75,7 @@ func TestDepthAndCommonLotRounding(t *testing.T) {
 	now := time.Now()
 	b := book("binance", "spot", 100, 99, now)
 	s := book("bybit", "perpetual", 102, 101, now)
-	q := Defaults()
+	q := legacyDefaults()
 	b.Instrument.Step = .003
 	s.Instrument.Step = .005
 	o, ok := Calculate(b, s, q, now)
@@ -106,7 +106,7 @@ func TestFreshnessAndIdentity(t *testing.T) {
 	now := time.Now()
 	b := book("binance", "spot", 100, 99, now)
 	s := book("bybit", "perpetual", 102, 101, now)
-	q := Defaults()
+	q := legacyDefaults()
 	for _, change := range []func(*market.Book){func(b *market.Book) { b.Valid = false }, func(b *market.Book) { b.ReceivedAt = now.Add(-11 * time.Second).UnixMilli() }, func(b *market.Book) { b.SourceAt = now.Add(-11 * time.Second).UnixMilli() }, func(b *market.Book) { b.SourceAt = now.Add(3 * time.Second).UnixMilli() }, func(b *market.Book) { b.Instrument.Asset = "ETH" }, func(b *market.Book) { b.Bids[0].Price = b.Asks[0].Price }} {
 		copy := s
 		copy.Bids = append([]market.Level{}, s.Bids...)
@@ -121,7 +121,7 @@ func TestQuoteAgeUsesOlderExchangeTimestamp(t *testing.T) {
 	b := book("binance", "spot", 100, 99, now)
 	s := book("bybit", "perpetual", 102, 101, now)
 	b.SourceAt = now.Add(-20 * time.Second).UnixMilli()
-	q := Defaults()
+	q := legacyDefaults()
 	q.MaxAgeMS = 30000
 	o, ok := Calculate(b, s, q, now)
 	if !ok || o.Buy.BookAt != b.SourceAt || o.AgeMS != 20000 {
@@ -136,7 +136,7 @@ func TestSpotCycleAndSameExchange(t *testing.T) {
 	now := time.Now()
 	b := book("binance", "spot", 100, 99, now)
 	s := book("bybit", "spot", 102, 101, now)
-	q := Defaults()
+	q := legacyDefaults()
 	q.Strategy = "spot-spot"
 	o, ok := Calculate(b, s, q, now)
 	if !ok || o.ScenarioPnL != nil || o.FundingEstimate != nil {
@@ -179,10 +179,12 @@ func BenchmarkScanSixExchanges(b *testing.B) {
 			}
 		}
 	}
-	q := Defaults()
+	q := legacyDefaults()
 	q.MinSpread = -2
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		Scan(books, q, now)
 	}
 }
+
+func legacyDefaults() Query { q := Defaults(); q.Simple = false; q.MinSpread = .1; return q }

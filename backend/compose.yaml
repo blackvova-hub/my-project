@@ -23,7 +23,7 @@ services:
     environment: &arbitrage-env
       REDIS_ADDR: "redis:6379"
       REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
-      ARBITRAGE_ASSETS: "${ARBITRAGE_ASSETS:-BTC,ETH,SOL,XRP,DOGE,ADA,AVAX,LINK,DOT,LTC,BCH,TRX,TON,SUI,APT,ARB,OP,NEAR,UNI,AAVE,ATOM,ETC,FIL,ICP,INJ,SEI,PEPE,SHIB,BONK,FLOKI}"
+      ARBITRAGE_ASSETS: "${ARBITRAGE_ASSETS:-*}"
     restart: unless-stopped
     logging: *default-logging
     depends_on:

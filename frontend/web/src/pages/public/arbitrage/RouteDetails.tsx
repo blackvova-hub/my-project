@@ -5,6 +5,7 @@ import { http } from "../../../shared/api/http";
 import {
   exchangeNames,
   fmt,
+  identityLabel,
   type History,
   type Leg,
   type Opportunity,
@@ -18,28 +19,27 @@ function Book({ leg, buy }: { leg: Leg; buy: boolean }) {
         {exchangeNames[leg.instrument.exchange]}
       </h3>
       <div className="mt-1 text-xs text-muted-foreground">
-        {leg.instrument.nativeSymbol} ·{" "}
+        {leg.instrument.nativeSymbol}
+        {identityLabel(leg.instrument.assetIdentity)
+          ? ` · ${identityLabel(leg.instrument.assetIdentity)}`
+          : ""}{" "}
+        ·{" "}
         {leg.instrument.market === "spot" ? "Спот" : "Бессрочный USDT-фьючерс"}
       </div>
       <div className="my-3 space-y-1 text-sm">
-        <p>Средняя цена исполнения: {fmt(leg.price, 8)}</p>
         <p>
-          Объём: {fmt(leg.notional)} USDT · комиссия: {fmt(leg.fee, 4)} USDT
+          Цена:{" "}
+          {leg.price.toLocaleString("ru-RU", { maximumSignificantDigits: 8 })}{" "}
+          USDT
         </p>
+        <p>Доступный объём: {fmt(leg.notional)} USDT</p>
         <p>
           Время котировки: {new Date(leg.bookAt).toLocaleTimeString("ru-RU")}
         </p>
-        {leg.funding && (
-          <p>
-            Funding: {fmt(leg.funding.rate * 100, 4)} % каждые{" "}
-            {fmt(leg.funding.intervalMs / 3600000, 1)} ч · следующее начисление{" "}
-            {new Date(leg.funding.nextAt).toLocaleString("ru-RU")}
-          </p>
-        )}
       </div>
       <table className="w-full text-sm">
         <caption className="mb-2 text-left text-xs text-muted-foreground">
-          {buy ? "Полученные asks" : "Полученные bids"}
+          {buy ? "Предложения продажи" : "Предложения покупки"}
         </caption>
         <thead>
           <tr>
@@ -227,52 +227,10 @@ export default function RouteDetails({
         <Book leg={row.sell} buy={false} />
       </div>
       <section className="mt-4 rounded-xl border border-border p-4">
-        <h3 className="font-semibold">
-          Расчёт на {fmt(row.quantity, 8)} {row.asset}
-        </h3>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-          <dt>Входной спред по объёму</dt>
-          <dd className="text-right">{fmt(row.entrySpreadPct)} %</dd>
-          <dt>Комиссии входа</dt>
-          <dd className="text-right">{fmt(row.entryFees, 4)} USDT</dd>
-          <dt>После комиссий входа</dt>
-          <dd className="text-right">{fmt(row.netEntryPct)} %</dd>
-          {row.strategy === "spot-spot" ? (
-            <>
-              <dt>Результат без ребалансировки</dt>
-              <dd className="text-right">
-                {outdated ? "—" : fmt(row.spotCyclePnl)} USDT
-              </dd>
-            </>
-          ) : (
-            <>
-              <dt>Комиссии выхода, оценка</dt>
-              <dd className="text-right">
-                {fmt(row.exitFeesEstimate, 4)} USDT
-              </dd>
-              <dt>Funding за {row.horizonHours} ч, оценка</dt>
-              <dd className="text-right">{fmt(row.fundingEstimate, 4)} USDT</dd>
-              <dt>Сценарий при спреде выхода {fmt(row.exitSpreadPct)} %</dt>
-              <dd className="text-right font-semibold">
-                {outdated ? "—" : fmt(row.scenarioPnl)} USDT
-              </dd>
-            </>
-          )}
-        </dl>
-        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-          {row.strategy !== "spot-spot" && row.fundingEstimate == null
-            ? "Для одной из ног нет свежего funding; итоговый сценарий не рассчитан. "
-            : ""}
-          Цена учитывает доступные уровни стакана; недостаточный объём
-          отсекается. Сценарий — оценка при заданных условиях, ставки и цены
-          могут измениться.
-        </p>
-      </section>
-      <section className="mt-4 rounded-xl border border-border p-4">
-        <h3 className="font-semibold">История спреда лучших bid/ask</h3>
+        <h3 className="font-semibold">История разницы цен</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          До 6 ч · выборочные наблюдения раз в 30 с · без комиссий и размера
-          позиции. Пропуски данных не соединяются.
+          До 6 ч · выборочные наблюдения раз в 30 с. Пропуски данных не
+          соединяются.
         </p>
         {history.isPending ? (
           <p role="status" className="py-6 text-sm text-muted-foreground">

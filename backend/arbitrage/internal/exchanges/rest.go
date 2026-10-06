@@ -2,7 +2,9 @@ package exchanges
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -10,12 +12,21 @@ import (
 	"net/url"
 	"os"
 	"shortlong/arbitrage/internal/market"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type Record map[string]any
+
+type httpStatusError struct {
+	exchange string
+	status   int
+	label    string
+}
+
+func (e *httpStatusError) Error() string { return fmt.Sprintf("%s: HTTP %d", e.exchange, e.status) }
 
 func text(v any) string {
 	switch x := v.(type) {
@@ -76,7 +87,16 @@ func New(exchange, assets string) *Client {
 	bases := map[string][2]string{"binance": {"https://api.binance.com", "https://fapi.binance.com"}, "bybit": {"https://api.bybit.com", "https://api.bybit.com"}, "okx": {"https://www.okx.com", "https://www.okx.com"}, "bitget": {"https://api.bitget.com", "https://api.bitget.com"}, "gateio": {"https://api.gateio.ws", "https://api.gateio.ws"}, "kucoin": {"https://api.kucoin.com", "https://api-futures.kucoin.com"}}
 	b := bases[exchange]
 	prefix := strings.ToUpper(exchange)
-	return &Client{exchange, &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}, market.AssetSet(assets), env(prefix+"_SPOT_BASE_URL", b[0]), env(prefix+"_FUTURES_BASE_URL", b[1])}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	if exchange == "gateio" {
+		// Gate's HTTP/2 responses can stall on this deployment's network path.
+		// Keep TLS validation and connection reuse while using its HTTP/1.1 API.
+		transport.Protocols = new(http.Protocols)
+		transport.Protocols.SetHTTP1(true)
+		transport.ForceAttemptHTTP2 = false
+		transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, NextProtos: []string{"http/1.1"}}
+	}
+	return &Client{exchange, &http.Client{Transport: transport, Timeout: 45 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}, market.AssetSet(assets), env(prefix+"_SPOT_BASE_URL", b[0]), env(prefix+"_FUTURES_BASE_URL", b[1])}
 }
 func (c *Client) request(ctx context.Context, method, base, path string) (any, error) {
 	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(base, "/")+path, nil)
@@ -91,7 +111,11 @@ func (c *Client) request(ctx context.Context, method, base, path string) (any, e
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%s: HTTP %d", c.Exchange, resp.StatusCode)
+		var detail struct {
+			Label string `json:"label"`
+		}
+		_ = json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&detail)
+		return nil, &httpStatusError{c.Exchange, resp.StatusCode, detail.Label}
 	}
 	d := json.NewDecoder(io.LimitReader(resp.Body, 32<<20))
 	d.UseNumber()
@@ -151,7 +175,20 @@ func (c *Client) Catalog(ctx context.Context, kind string) ([]market.Instrument,
 	default:
 		return nil, fmt.Errorf("unknown exchange %s", c.Exchange)
 	}
-	value, err := c.request(ctx, "GET", base, path)
+	var value any
+	var err error
+	if c.Exchange == "gateio" && !market.AllAssets(c.Allowed) {
+		symbols := make([]string, 0, len(c.Allowed))
+		for asset := range c.Allowed {
+			symbols = append(symbols, asset+"_USDT")
+			if kind == "perpetual" && (asset == "PEPE" || asset == "SHIB" || asset == "BONK" || asset == "FLOKI") {
+				symbols = append(symbols, "1000"+asset+"_USDT")
+			}
+		}
+		value, err = c.gateRows(ctx, base, path, symbols)
+	} else {
+		value, err = c.request(ctx, "GET", base, path)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -283,6 +320,11 @@ func (c *Client) Catalog(ctx context.Context, kind string) ([]market.Instrument,
 					quote = parts[1]
 				}
 				enabled = x["in_delisting"] != true && x["is_pre_market"] != true && (str(x, "status") == "trading" || str(x, "status") == "")
+				// Stocks/ETFs and other traditional markets may reuse coin tickers.
+				classification := strings.ToLower(str(x, "contract_type"))
+				if classification == "stocks" || classification == "metals" || classification == "indices" || classification == "forex" || classification == "commodities" {
+					enabled = false
+				}
 				i.QuantityScale = number(x, "quanto_multiplier")
 				i.Step = 1
 				if x["enable_decimal"] == true {
@@ -318,6 +360,7 @@ func (c *Client) Catalog(ctx context.Context, kind string) ([]market.Instrument,
 			continue
 		}
 		i.Asset = a
+		i.AssetIdentity = market.IdentityFor(c.Exchange, kind, a)
 		i.PriceScale = scale
 		i.QuantityScale *= scale
 		i.Step *= i.QuantityScale
@@ -334,6 +377,34 @@ func (c *Client) Catalog(ctx context.Context, kind string) ([]market.Instrument,
 		return nil, fmt.Errorf("%s %s: no supported instruments", c.Exchange, kind)
 	}
 	return out, nil
+}
+
+// Fetch only reviewed instruments: the full Gate catalogue can exceed a megabyte.
+// Individual public endpoints keep startup and funding usable on slow connections.
+func (c *Client) gateRows(ctx context.Context, base, path string, symbols []string) ([]any, error) {
+	sort.Strings(symbols)
+	rows := make([]any, 0, len(symbols))
+	for _, symbol := range symbols {
+		value, err := c.request(ctx, "GET", base, path+"/"+url.PathEscape(symbol))
+		if err != nil {
+			var status *httpStatusError
+			if errors.As(err, &status) && (status.status == http.StatusNotFound || status.status == http.StatusBadRequest && (status.label == "INVALID_CURRENCY_PAIR" || status.label == "CONTRACT_NOT_FOUND")) {
+				continue
+			}
+			return nil, err
+		}
+		r := rec(value)
+		if str(r, "id") != symbol && str(r, "name") != symbol {
+			return nil, fmt.Errorf("gateio: unexpected instrument for %s", symbol)
+		}
+		rows = append(rows, value)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	return rows, nil
 }
 func tradeURL(i market.Instrument) string {
 	s := url.PathEscape(i.Native)
@@ -424,7 +495,17 @@ func (c *Client) Funding(ctx context.Context, instruments []market.Instrument) (
 		}
 		return out, nil
 	}
-	v, err := c.request(ctx, "GET", base, path)
+	var v any
+	var err error
+	if c.Exchange == "gateio" {
+		symbols := make([]string, 0, len(instruments))
+		for _, i := range instruments {
+			symbols = append(symbols, i.Native)
+		}
+		v, err = c.gateRows(ctx, base, path, symbols)
+	} else {
+		v, err = c.request(ctx, "GET", base, path)
+	}
 	if err != nil {
 		return out, err
 	}

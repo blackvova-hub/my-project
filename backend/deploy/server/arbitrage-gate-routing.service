@@ -1,0 +1,10 @@
+[Unit]
+Description=Maintain Gate collector route through the existing VPN
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/shortlong/backend/deploy/server/arbitrage-gate-routing.py
+TimeoutStartSec=45
+UMask=0077

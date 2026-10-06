@@ -6,7 +6,7 @@ import (
 )
 
 func TestReviewedAliasesAndBundles(t *testing.T) {
-	allow := AssetSet(DefaultAssets)
+	allow := AssetSet("BTC,ETH,PEPE")
 	for _, c := range []struct {
 		raw, asset string
 		scale      float64
@@ -15,6 +15,20 @@ func TestReviewedAliasesAndBundles(t *testing.T) {
 		a, s, ok := Asset(c.raw, allow)
 		if a != c.asset || s != c.scale || ok != c.ok {
 			t.Fatal(c, a, s, ok)
+		}
+	}
+}
+func TestAllAssetsRetainsNumericTokenNames(t *testing.T) {
+	for _, allow := range []map[string]bool{nil, AssetSet(DefaultAssets)} {
+		for _, raw := range []string{"1INCH", "NEWTOKEN", "1000BTC"} {
+			a, scale, ok := Asset(raw, allow)
+			if !ok || a != raw || scale != 1 {
+				t.Fatal(raw, a, scale, ok)
+			}
+		}
+		a, scale, ok := Asset("1000PEPE", allow)
+		if !ok || a != "PEPE" || scale != 1000 {
+			t.Fatal("bundled contract not normalized")
 		}
 	}
 }

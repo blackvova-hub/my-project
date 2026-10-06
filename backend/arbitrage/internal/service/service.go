@@ -25,6 +25,9 @@ type Depth struct {
 	Asks []market.Level `json:"asks"`
 }
 type Snapshot struct {
+	Total            int                  `json:"total"`
+	Offset           int                  `json:"offset"`
+	UniverseMode     string               `json:"universeMode"`
 	Books            map[string]Depth     `json:"books"`
 	Rows             []engine.Opportunity `json:"rows"`
 	Sources          []market.Status      `json:"sources"`
@@ -47,7 +50,9 @@ type Service struct {
 func New(r *redis.Client) *Service {
 	assets := []string{}
 	for a := range market.AssetSet(market.DefaultAssets) {
-		assets = append(assets, a)
+		if a != "*" {
+			assets = append(assets, a)
+		}
 	}
 	sort.Strings(assets)
 	return &Service{Redis: r, Universe: assets, since: map[string]int64{}, transport: "connecting"}
@@ -75,6 +80,13 @@ func (s *Service) Refresh(ctx context.Context, now time.Time) error {
 	out := []market.Book{}
 	sources := []market.Status{}
 	for _, e := range market.Exchanges {
+		decoded := map[string][]market.Book{}
+		for _, raw := range books[e].Val() {
+			var b market.Book
+			if json.Unmarshal([]byte(raw), &b) == nil && b.Instrument.Exchange == e && b.Fresh(now, 30*time.Second) {
+				decoded[b.Instrument.Market] = append(decoded[b.Instrument.Market], b)
+			}
+		}
 		for _, k := range []string{"spot", "perpetual"} {
 			st := market.Status{Exchange: e, Market: k, State: "offline", Message: "Нет свежего состояния сборщика"}
 			raw, er := statuses[e+":"+k].Result()
@@ -86,13 +98,8 @@ func (s *Service) Refresh(ctx context.Context, now time.Time) error {
 			}
 			st.Books = 0
 			if st.State == "live" {
-				for _, raw := range books[e].Val() {
-					var b market.Book
-					if json.Unmarshal([]byte(raw), &b) == nil && b.Instrument.Exchange == e && b.Instrument.Market == k && b.Fresh(now, 30*time.Second) {
-						out = append(out, b)
-						st.Books++
-					}
-				}
+				out = append(out, decoded[k]...)
+				st.Books = len(decoded[k])
 				if st.Books == 0 {
 					st.State = "stale"
 					st.Message = "Котировки устарели или ещё не получены"
@@ -108,7 +115,7 @@ func (s *Service) Refresh(ctx context.Context, now time.Time) error {
 		if !b.Fresh(now, 10*time.Second) {
 			continue
 		}
-		groups[b.Instrument.Asset] = append(groups[b.Instrument.Asset], b)
+		groups[b.Instrument.Identity()] = append(groups[b.Instrument.Identity()], b)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -140,6 +147,10 @@ func (s *Service) Dataset(q engine.Query, now time.Time) Snapshot {
 	d := Snapshot{Rows: []engine.Opportunity{}, Sources: append([]market.Status{}, s.sources...), At: now.UnixMilli(), Assets: []string{}, Transport: s.transport}
 	d.Books = map[string]Depth{}
 	d.ConfiguredAssets = append([]string{}, s.Universe...)
+	d.UniverseMode = "all"
+	if len(s.Universe) > 0 {
+		d.UniverseMode = "selected"
+	}
 	if now.UnixMilli()-s.at > 3000 {
 		d.Transport = "stale"
 		return d
@@ -153,7 +164,7 @@ func (s *Service) Dataset(q engine.Query, now time.Time) Snapshot {
 	}
 	sort.Strings(d.Assets)
 	limit := q.Limit
-	q.Limit = 10000 // Apply duration sorting before limiting results.
+	q.Limit = 0 // Sort and count the complete universe before pagination.
 	d.Rows = engine.Scan(s.books, q, now)
 	for n := range d.Rows {
 		d.Rows[n].Since = s.since[d.Rows[n].ID]
@@ -173,9 +184,14 @@ func (s *Service) Dataset(q engine.Query, now time.Time) Snapshot {
 			return a < b
 		})
 	}
-	if len(d.Rows) > limit {
-		d.Rows = d.Rows[:limit]
+	d.Total = len(d.Rows)
+	d.Offset = q.Offset
+	if d.Total == 0 {
+		d.Offset = 0
+	} else if d.Offset >= d.Total {
+		d.Offset = ((d.Total - 1) / limit) * limit
 	}
+	d.Rows = d.Rows[d.Offset:min(d.Offset+limit, d.Total)]
 	// A book is transmitted once, even when it participates in dozens of routes.
 	// All rows and depth therefore still belong to the same calculation snapshot.
 	for n := range d.Rows {

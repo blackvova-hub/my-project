@@ -34,6 +34,22 @@ func request(a *API, method, path, body string, headers map[string]string) *http
 func settings() Settings {
 	return Settings{Strategy: "spot-perpetual", Amount: 1000, MinSpread: .1, MaxAgeMS: 10000, HorizonHours: 24, Exchanges: []string{"binance", "bybit"}, Assets: []string{}, InterExchange: true, Sort: "spread", Limit: 100}
 }
+func TestUnicodeSearch(t *testing.T) {
+	s := settings()
+	s.Simple = true
+	for _, value := range []string{"", "BTC", "1INCH", "哈基米"} {
+		s.Search = value
+		if !validSettings(s) {
+			t.Fatalf("rejected %q", value)
+		}
+	}
+	for _, value := range []string{"BTC/USDT", "BTC ETH", strings.Repeat("哈", 11)} {
+		s.Search = value
+		if validSettings(s) {
+			t.Fatalf("accepted %q", value)
+		}
+	}
+}
 func TestAuthenticationAndCSRF(t *testing.T) {
 	a := testAPI("")
 	a.authenticate = func(*http.Request) (auth.User, error) { return auth.User{}, errors.New("unauthorized") }

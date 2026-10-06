@@ -27,7 +27,9 @@ func main() {
 	if raw := os.Getenv("ARBITRAGE_ASSETS"); raw != "" {
 		s.Universe = nil
 		for a := range market.AssetSet(raw) {
-			s.Universe = append(s.Universe, a)
+			if a != "*" {
+				s.Universe = append(s.Universe, a)
+			}
 		}
 		sort.Strings(s.Universe)
 	}

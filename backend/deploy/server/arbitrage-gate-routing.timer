@@ -1,0 +1,11 @@
+[Unit]
+Description=Maintain Gate collector route through the existing VPN
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=60
+AccuracySec=5
+Unit=arbitrage-gate-routing.service
+
+[Install]
+WantedBy=timers.target

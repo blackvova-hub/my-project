@@ -56,6 +56,24 @@ func TestThirtySecondAgeOptionRetainsOlderQuotes(t *testing.T) {
 		t.Fatal("30-second option ignored")
 	}
 }
+func TestPaginationAndAllUniverseMetadata(t *testing.T) {
+	now := time.Now()
+	s := New(nil)
+	s.at = now.UnixMilli()
+	s.transport = "live"
+	s.books = []market.Book{sample("binance", "spot", 100, 99, now), sample("bybit", "perpetual", 102, 101, now), sample("okx", "perpetual", 103, 102, now)}
+	q := engine.Defaults()
+	q.Limit = 1
+	q.Offset = 1
+	d := s.Dataset(q, now)
+	if d.Total != 2 || len(d.Rows) != 1 || d.Offset != 1 || d.UniverseMode != "all" || len(d.ConfiguredAssets) != 0 {
+		t.Fatal(d)
+	}
+	q.Offset = 999
+	if d = s.Dataset(q, now); len(d.Rows) != 1 || d.Total != 2 || d.Offset != 1 {
+		t.Fatal("a shrinking live result must retain its last valid page")
+	}
+}
 func TestRedisCollectorCoverageDurationHistoryAndDisconnect(t *testing.T) {
 	addr := os.Getenv("ARBITRAGE_TEST_REDIS_ADDR")
 	if addr == "" {

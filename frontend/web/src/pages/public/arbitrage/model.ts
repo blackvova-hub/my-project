@@ -14,7 +14,22 @@ export const exchangeNames: Record<string, string> = {
   gateio: "Gate.io",
   kucoin: "KuCoin",
 };
+export function identityLabel(identity?: string): string | undefined {
+  return identity === "UP:SUPERFORM"
+    ? "Superform"
+    : identity === "UP:UNITAS"
+      ? "Unitas"
+      : undefined;
+}
+export function validSearch(search: string): boolean {
+  return (
+    new TextEncoder().encode(search).length <= 30 &&
+    /^[\p{L}\p{N}]*$/u.test(search)
+  );
+}
 export type Settings = {
+  simple?: boolean;
+  search?: string;
   strategy: string;
   amount: number;
   minSpread: number;
@@ -30,9 +45,11 @@ export type Settings = {
   limit: number;
 };
 export const defaults: Settings = {
+  simple: true,
+  search: "",
   strategy: "spot-perpetual",
   amount: 1000,
-  minSpread: 0.1,
+  minSpread: 0,
   maxAgeMs: 10000,
   horizonHours: 24,
   exitSpread: 0,
@@ -42,6 +59,39 @@ export const defaults: Settings = {
   sort: "spread",
   limit: 100,
 };
+// Old saved budgets/fees never silently restrict the simplified scanner.
+export function simpleSettings(saved: Settings | null): Settings {
+  const selected =
+    saved?.exchanges.filter((e) =>
+      exchanges.includes(e as (typeof exchanges)[number]),
+    ) ?? [];
+  return {
+    ...defaults,
+    exchanges: selected.length >= 2 ? selected : [...exchanges],
+    strategy: ["spot-perpetual", "perpetual-perpetual", "spot-spot"].includes(
+      saved?.strategy ?? "",
+    )
+      ? saved!.strategy
+      : defaults.strategy,
+    search: saved?.search ?? "",
+  };
+}
+export function simpleQuery(
+  s: Settings,
+  offset = 0,
+  routes?: string[],
+): string {
+  const p = new URLSearchParams({
+    simple: "true",
+    strategy: s.strategy,
+    exchanges: s.exchanges.join(","),
+    search: s.search ?? "",
+    offset: String(offset),
+    limit: "100",
+  });
+  if (routes?.length) p.set("routes", routes.join(","));
+  return p.toString();
+}
 export type Draft = Omit<
   Settings,
   "amount" | "minSpread" | "exitSpread" | "assets" | "feeSpot" | "feePerpetual"
@@ -90,6 +140,8 @@ export function parseDraft(d: Draft): { settings?: Settings; error?: string } {
   if (assets.length > 100 || assets.some((a) => !/^[A-Z0-9]{1,30}$/.test(a)))
     return { error: "Укажите тикеры монет через пробел или запятую." };
   const s: Settings = {
+    simple: d.simple,
+    search: d.search,
     strategy: d.strategy,
     amount,
     minSpread,
@@ -135,6 +187,7 @@ export type Instrument = {
   market: string;
   nativeSymbol: string;
   asset: string;
+  assetIdentity?: string;
   quantityStep: number;
   minQuantity: number;
   minNotional: number;
@@ -175,6 +228,8 @@ export type Opportunity = {
   calculatedAt: number;
 };
 export type Source = {
+  connections?: number;
+  connected?: number;
   exchange: string;
   market: string;
   state: string;
@@ -185,6 +240,9 @@ export type Source = {
   lastBookAt: number;
 };
 export type Dataset = {
+  total: number;
+  offset: number;
+  universeMode: string;
   books: Record<string, { bids: Level[]; asks: Level[] }>;
   rows: Opportunity[];
   sources: Source[];

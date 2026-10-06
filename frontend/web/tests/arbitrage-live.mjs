@@ -58,14 +58,107 @@ try {
   );
   expect(initial.status()).toBe(200);
   original = await initial.json();
+  const defaults = {
+    simple: true,
+    search: "",
+    strategy: "spot-perpetual",
+    amount: 1000,
+    minSpread: 0,
+    maxAgeMs: 10000,
+    horizonHours: 24,
+    exitSpread: 0,
+    exchanges: ["binance", "bybit", "okx", "bitget", "gateio", "kucoin"],
+    assets: [],
+    interExchange: true,
+    sort: "spread",
+    limit: 100,
+  };
+  expect(
+    (
+      await context.request.put(`${base}/api/arbitrage/preferences`, {
+        data: { settings: defaults, favorites: [] },
+        headers: { Origin: base },
+      })
+    ).status(),
+  ).toBe(200);
   await page.goto(`${base}/arbitrage`);
   await expect(
-    page.getByRole("heading", { name: "Настройки поиска" }),
+    page.getByRole("heading", { name: "Арбитраж", exact: true }),
   ).toBeVisible();
-  const nav = page.getByRole("link", { name: "Арбитраж", exact: true });
-  await expect(nav.first()).toHaveAttribute("href", "/arbitrage");
-  check("authenticated page and desktop navigation");
-  await page.getByRole("button", { name: "Сбросить", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "Арбитраж", exact: true }).first(),
+  ).toHaveAttribute("href", "/arbitrage");
+  await expect(
+    page.getByRole("textbox", { name: "Найти монету" }),
+  ).toBeVisible();
+  await expect(page.getByRole("slider")).toHaveCount(0);
+  await expect(page.getByRole("combobox")).toHaveCount(0);
+  await expect(
+    page.getByText("Комиссии и сценарий выхода", { exact: true }),
+  ).toHaveCount(0);
+  check("simple authenticated page: only modes, exchanges and coin search");
+  let snapshot;
+  await expect
+    .poll(
+      async () => {
+        const r = await context.request.get(
+          `${base}/api/arbitrage/opportunities?simple=true&limit=100`,
+        );
+        if (r.status() !== 200) return false;
+        snapshot = await r.json();
+        return defaults.exchanges.every((e) =>
+          ["spot", "perpetual"].every((k) =>
+            snapshot.sources.some(
+              (s) =>
+                s.exchange === e &&
+                s.market === k &&
+                s.state === "live" &&
+                s.books > 0 &&
+                (!s.connections || s.connected === s.connections) &&
+                (e !== "gateio" || s.books > 50),
+            ),
+          ),
+        );
+      },
+      { timeout: 120000, intervals: [2000, 5000] },
+    )
+    .toBeTruthy();
+  expect(snapshot.assets.length).toBeGreaterThan(30);
+  expect(snapshot.universeMode).toBe("all");
+  expect(snapshot.rows.length).toBeGreaterThan(0);
+  result.sources = snapshot.sources;
+  result.availableAssets = snapshot.assets;
+  result.total = snapshot.total;
+  for (const o of snapshot.rows) {
+    expect(o.entrySpreadPct).toBeGreaterThan(0);
+    expect(o.entrySpreadPct).toBeCloseTo(
+      (o.sell.price / o.buy.price - 1) * 100,
+      8,
+    );
+    expect(o.depthUsdt).toBeCloseTo(o.quantity * o.buy.price, 6);
+    expect(o.buy.instrument.exchange).not.toBe(o.sell.instrument.exchange);
+  }
+  for (const ticker of ["UP", "EWT", "哈基米"]) {
+    const r = await context.request.get(
+      `${base}/api/arbitrage/opportunities?simple=true&search=${encodeURIComponent(ticker)}&limit=300`,
+    );
+    expect(r.status()).toBe(200);
+    for (const o of (await r.json()).rows) {
+      expect(o.asset).toContain(ticker);
+      expect(o.buy.instrument.assetIdentity).toBe(
+        o.sell.instrument.assetIdentity,
+      );
+      if (ticker === "EWT")
+        for (const leg of [o.buy, o.sell])
+          expect(
+            `${leg.instrument.exchange}:${leg.instrument.market}`,
+          ).not.toBe("gateio:perpetual");
+    }
+  }
+  check(
+    "all six spot and futures sources, expanded coin universe, real raw bid/ask and matched volume",
+  );
+  await expect(page.locator(".arb-table tbody tr").first()).toBeVisible();
   for (const [theme, label] of [
     ["light", "Светлая тема"],
     ["dark", "Тёмная тема"],
@@ -74,143 +167,96 @@ try {
     await page.getByRole("button", { name: label, exact: true }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     result.themes[theme] = await page.locator(".arb-page").evaluate((el) => {
-      const panel = el.querySelector(".arb-panel"),
-        input = el.querySelector('input[aria-label="Размер покупки, USDT"]');
-      const p = panel.getBoundingClientRect(),
-        i = input.getBoundingClientRect();
+      const p = el.querySelector(".arb-panel"),
+        i = el.querySelector("input"),
+        r = p.getBoundingClientRect();
       return {
         pageWidth: el.getBoundingClientRect().width,
-        panelX: p.x,
-        panelWidth: p.width,
-        panelRadius: getComputedStyle(panel).borderRadius,
-        inputHeight: i.height,
-        background: getComputedStyle(panel).backgroundColor,
+        panelX: r.x,
+        panelWidth: r.width,
+        panelRadius: getComputedStyle(p).borderRadius,
+        inputHeight: i.getBoundingClientRect().height,
+        background: getComputedStyle(p).backgroundColor,
       };
     });
-    await page.screenshot({ path: resolve(output, `desktop-${theme}.png`) });
-    check(`desktop ${theme} theme`);
+    await page.screenshot({
+      path: resolve(output, `simple-desktop-${theme}.png`),
+    });
+    check(`desktop ${theme}`);
   }
   const geometry = (t) => ({ ...t, background: undefined });
   expect(geometry(result.themes.light)).toEqual(geometry(result.themes.dark));
   expect(geometry(result.themes.dark)).toEqual(geometry(result.themes.green));
-  check("theme changes preserve geometry");
-  const sorting = page.getByRole("combobox", {
-    name: "Сортировка",
-    exact: true,
-  });
-  await sorting.focus();
-  await page.keyboard.press("Enter");
-  await expect(page.getByRole("listbox")).toBeVisible();
-  await page.keyboard.press("End");
-  await page.keyboard.press("Enter");
-  await expect(sorting).toContainText("По длительности");
-  await sorting.click();
-  await page.getByRole("option", { name: "По спреду", exact: true }).click();
-  check("shared dropdown mouse and keyboard interaction");
-  const range = page.getByRole("slider", {
-    name: "Ползунок минимального спреда",
-  });
-  await range.focus();
-  const before = Number(await range.inputValue());
-  await page.keyboard.press("ArrowRight");
-  expect(Number(await range.inputValue())).toBeGreaterThan(before);
-  check("slider keyboard input");
-  const amount = page.getByRole("textbox", {
-    name: "Размер покупки, USDT",
-    exact: true,
-  });
-  await amount.fill("");
-  await expect(
-    page.getByRole("alert").filter({ hasText: "Размер покупки:" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Сохранить", exact: true }),
-  ).toBeDisabled();
-  await amount.fill("100");
-  await page
-    .getByRole("textbox", { name: "Минимальный спред, %", exact: true })
-    .fill("-1");
-  await page
-    .getByRole("textbox", { name: "Монеты", exact: true })
-    .fill("BTC, ETH, SOL");
-  await expect(
-    page
-      .locator(".arb-table tbody tr")
-      .first()
-      .getByRole("button", { name: /^В избранное |^Убрать из избранного / }),
-  ).toBeVisible({ timeout: 30000 });
-  check("validation and real opportunities");
-  let snapshot;
-  await expect
-    .poll(
-      async () => {
-        const live = await context.request.get(
-          `${base}/api/arbitrage/opportunities?amount=100&minSpread=-1&assets=BTC,ETH,SOL`,
-        );
-        snapshot = await live.json();
-        return ["binance", "bybit", "okx", "bitget", "gateio", "kucoin"].every(
-          (e) =>
-            snapshot.sources?.some(
-              (s) => s.exchange === e && s.state === "live" && s.books > 0,
-            ),
-        );
-      },
-      { timeout: 60000, intervals: [1000, 2000, 3000] },
-    )
-    .toBeTruthy();
-  expect(snapshot.transport).toBe("live");
-  expect(snapshot.rows.length).toBeGreaterThan(0);
-  result.sources = snapshot.sources;
-  result.availableAssets = snapshot.assets;
-  result.configuredAssets = snapshot.configuredAssets;
-  for (const e of ["binance", "bybit", "okx", "bitget", "gateio", "kucoin"])
-    expect(
-      snapshot.sources.some(
-        (s) => s.exchange === e && s.state === "live" && s.books > 0,
-      ),
-    ).toBeTruthy();
-  check("six exchanges supply real quotes");
+  check("three themes preserve geometry");
   await page.getByRole("button", { name: "Пауза", exact: true }).click();
-  const firstRow = page.locator(".arb-table tbody tr").first();
-  const asset = await firstRow.getByRole("button").last().textContent();
-  await firstRow.getByRole("button").last().click();
+  const row = page.locator(".arb-table tbody tr").first();
+  const asset = await row
+    .locator("td")
+    .first()
+    .getByRole("button")
+    .last()
+    .textContent();
+  const detail = row.getByRole("button", { name: /^Подробности/ });
+  await detail.click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "История спреда лучших bid/ask" }),
+    page.getByRole("heading", { name: "История разницы цен" }),
   ).toBeVisible();
   await expect(
     page.getByRole("dialog").getByRole("link", { name: "Открыть инструмент" }),
   ).toHaveCount(2);
-  await page.screenshot({ path: resolve(output, "route-details.png") });
+  await expect(
+    page.getByRole("dialog").getByText("Комиссии входа", { exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({ path: resolve(output, "simple-route-details.png") });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(firstRow.getByRole("button").last()).toBeFocused();
-  check("route dialog, external instrument links and Escape focus restoration");
-  const star = firstRow.getByRole("button").first();
-  if ((await star.getAttribute("aria-pressed")) === "false") await star.click();
+  await expect(detail).toBeFocused();
+  check(
+    "simple route details, book levels, history, two exchange links and focus restoration",
+  );
+  const star = row.getByRole("button").first();
+  await star.click();
   await expect(star).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Сохранить", exact: true }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "Настройки сохранены." }),
-  ).toBeVisible();
-  await page.goto(`${base}/news`);
-  await page.goto(`${base}/arbitrage`);
-  await expect(
-    page.getByRole("textbox", { name: "Размер покупки, USDT", exact: true }),
-  ).toHaveValue("100");
+  const favoriteId = (
+    await (
+      await context.request.get(`${base}/api/arbitrage/preferences`)
+    ).json()
+  ).favorites[0];
+  const favoriteResponse = await context.request.get(
+    `${base}/api/arbitrage/opportunities?simple=true&routes=${favoriteId}`,
+  );
+  expect(
+    (await favoriteResponse.json()).rows.every((o) => o.id === favoriteId),
+  ).toBeTruthy();
+  await page.getByRole("button", { name: "Продолжить", exact: true }).click();
+  await page.getByRole("button", { name: "Избранное", exact: true }).click();
+  await expect
+    .poll(async () => {
+      const rows = page.locator(".arb-table tbody tr");
+      return (await rows.count()) <= 1;
+    })
+    .toBeTruthy();
+  await page.getByRole("button", { name: "Все", exact: true }).click();
+  check("favorites saved and queried independently of top-result pagination");
+  const search = page.getByRole("textbox", { name: "Найти монету" });
+  await search.fill(asset);
+  await search.blur();
+  await expect
+    .poll(async () => {
+      const r = await context.request.get(`${base}/api/arbitrage/preferences`);
+      return (await r.json()).settings.search;
+    })
+    .toBe(asset);
   await page.reload();
-  await expect(
-    page.getByRole("textbox", { name: "Размер покупки, USDT", exact: true }),
-  ).toHaveValue("100");
-  const saved = await (
-    await context.request.get(`${base}/api/arbitrage/preferences`)
-  ).json();
-  expect(saved.settings.assets).toEqual(["BTC", "ETH", "SOL"]);
-  expect(saved.favorites.length).toBeGreaterThan(0);
-  check("filters and favorites survive navigation and reload");
+  await expect(search).toHaveValue(asset);
+  await search.fill("");
+  await search.blur();
+  check("coin search and automatic preferences survive reload");
   for (const [strategy, label] of [
     ["perpetual-perpetual", "Фьючерс–фьючерс"],
     ["spot-spot", "Спот–спот"],
+    ["spot-perpetual", "Спот–фьючерс"],
   ]) {
     const response = page.waitForResponse(
       (r) =>
@@ -219,112 +265,101 @@ try {
         r.status() === 200,
     );
     await page.getByRole("button", { name: label, exact: true }).click();
-    const payload = await (await response).json();
-    expect(payload.rows.length).toBeGreaterThan(0);
-    expect(payload.rows.every((r) => r.strategy === strategy)).toBeTruthy();
-    await expect(
-      page.locator(".arb-table tbody tr").first().locator("td").nth(3),
-    ).not.toHaveText("—");
+    const d = await (await response).json();
+    expect(d.rows.length).toBeGreaterThan(0);
+    expect(d.rows.every((o) => o.strategy === strategy)).toBeTruthy();
   }
-  await expect(
-    page.getByText("Спот–спот предполагает заранее размещённые средства", {
-      exact: false,
-    }),
-  ).toBeVisible();
-  check("all three arbitrage modes");
-  await page.getByRole("button", { name: "Пауза", exact: true }).click();
-  const pausedAt = performance.now();
+  check("all three live arbitrage modes");
+  const bybit = page.getByRole("button", { name: "Bybit", exact: true });
+  await bybit.click();
+  await expect(bybit).toHaveAttribute("aria-pressed", "false");
   await expect
-    .poll(async () => page.locator(".arb-table tbody").textContent(), {
-      timeout: 15000,
+    .poll(async () => {
+      const p = await (
+        await context.request.get(`${base}/api/arbitrage/preferences`)
+      ).json();
+      return p.settings.exchanges.includes("bybit");
     })
-    .toContain("Устарело");
-  expect(performance.now() - pausedAt).toBeGreaterThan(5000);
-  check("paused quotes expire and calculated percentages disappear");
-  await page.getByRole("button", { name: "Продолжить", exact: true }).click();
-  await page.getByRole("button", { name: "Спот–фьючерс", exact: true }).click();
-  await page.getByText("Комиссии и сценарий выхода", { exact: true }).click();
-  await page
-    .getByRole("checkbox", { name: "Задать комиссии вручную", exact: true })
-    .check();
-  await page
-    .getByRole("textbox", { name: "Taker спот, %", exact: true })
-    .fill("0,08");
-  await page
-    .getByRole("combobox", { name: "Горизонт funding", exact: true })
-    .click();
-  await page.getByRole("option", { name: "8 ч", exact: true }).click();
-  await expect(
-    page.getByRole("columnheader", { name: "Funding за 8 ч" }),
-  ).toBeVisible();
-  check("fee overrides and funding horizon controls");
-  for (const [name, value] of [
-    ["Максимальный возраст котировки", "5 с"],
-    ["Число результатов", "50"],
-  ]) {
-    await page.getByRole("combobox", { name, exact: true }).click();
-    await page.getByRole("option", { name: value, exact: true }).click();
-  }
-  await page
-    .getByRole("checkbox", {
-      name: "Только между разными биржами",
-      exact: true,
-    })
-    .uncheck();
-  await page
-    .getByRole("textbox", { name: "Спред при закрытии, %", exact: true })
-    .fill("0,2");
-  await page.getByRole("button", { name: "Bybit", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Bybit", exact: true }),
-  ).toHaveAttribute("aria-pressed", "false");
-  check(
-    "exchange selections, quote age, result limit, same-exchange toggle and exit scenario",
+    .toBe(false);
+  await bybit.click();
+  await expect(bybit).toHaveAttribute("aria-pressed", "true");
+  check("exchange selection saved automatically");
+  const paging = await context.request.get(
+    `${base}/api/arbitrage/opportunities?simple=true&offset=100&limit=100`,
   );
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`${base}/arbitrage`);
+  const second = await paging.json();
+  expect(second.offset).toBe(
+    second.total === 0
+      ? 0
+      : Math.min(100, Math.floor((second.total - 1) / 100) * 100),
+  );
+  expect(second.rows.length).toBeLessThanOrEqual(100);
+  if (
+    await page.getByRole("button", { name: "Далее", exact: true }).isVisible()
+  ) {
+    await page.getByRole("button", { name: "Далее", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Назад", exact: true }),
+    ).toBeEnabled();
+    await page.getByRole("button", { name: "Назад", exact: true }).click();
+  }
+  check("complete result count and bounded pagination");
+  await page.getByRole("button", { name: "Пауза", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Настройки поиска" }),
-  ).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth + 1,
-    ),
-  ).toBeTruthy();
+    page.locator(".arb-table tbody tr").first().locator("td").nth(3),
+  ).toHaveText("—", { timeout: 15000 });
+  await expect(page.locator(".arb-table tbody")).toContainText("Устарело");
+  await page.getByRole("button", { name: "Продолжить", exact: true }).click();
+  check("paused quotes expire, percentages and available volume disappear");
+  await page.locator(".arb-sources summary").click();
+  await expect(page.getByText(/монет с котировками/)).toBeVisible();
+  await page.locator(".arb-sources summary").click();
+  check("source coverage and connection details disclosure");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.locator(".arb-table tbody tr").first().locator("td").nth(3),
+  ).not.toHaveText("—");
   for (const [theme, label] of [
     ["light", "Светлая тема"],
     ["dark", "Тёмная тема"],
     ["green", "Фирменная зелёная тема"],
   ]) {
     await page.getByRole("button", { name: label, exact: true }).click();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    ).toBeTruthy();
     await page.screenshot({
-      path: resolve(output, `mobile-${theme}.png`),
-      fullPage: false,
+      path: resolve(output, `simple-mobile-${theme}.png`),
     });
   }
   await page.getByText("Меню", { exact: true }).click();
-  const mobileNav = page.getByRole("navigation", {
-    name: "Мобильная навигация",
-  });
   await expect(
-    mobileNav.getByRole("link", { name: "Арбитраж", exact: true }),
+    page
+      .getByRole("navigation", { name: "Мобильная навигация" })
+      .getByRole("link", { name: "Арбитраж", exact: true }),
   ).toHaveAttribute("href", "/arbitrage");
-  await mobileNav.getByRole("link", { name: "Арбитраж", exact: true }).click();
-  check("390px layout, three mobile themes and navigation");
   await page
-    .getByRole("textbox", { name: "Монеты", exact: true })
-    .fill("UNKNOWN");
-  const emptyMessage = page
-    .getByRole("status")
-    .filter({ hasText: "Связок по выбранным условиям нет" });
-  await expect(emptyMessage).toBeVisible();
-  await emptyMessage.scrollIntoViewIfNeeded();
-  await expect(emptyMessage).toBeInViewport();
-  const emptyBounds = await emptyMessage.boundingBox();
-  expect(emptyBounds.x).toBeGreaterThanOrEqual(0);
-  expect(emptyBounds.x + emptyBounds.width).toBeLessThanOrEqual(390);
-  await page.screenshot({ path: resolve(output, "mobile-results.png") });
-  check("mobile empty state stays visible outside the wide table");
+    .getByRole("navigation", { name: "Мобильная навигация" })
+    .getByRole("link", { name: "Арбитраж", exact: true })
+    .click();
+  check(
+    "390px mobile, all three themes, scrollable table and existing navigation",
+  );
+  await search.fill("NONEXISTINGCOINZZZ");
+  await expect(
+    page.getByText("Связок не найдено", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: resolve(output, "simple-mobile-empty.png") });
+  await search.fill("BTC/USDT");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Введите тикер" }),
+  ).toBeVisible();
+  await search.fill("");
+  await search.blur();
+  check("empty search and invalid ticker states");
   await page.setViewportSize({ width: 1536, height: 1024 });
   for (const [path, title] of [
     ["/scanners/1", "Крипто-сканер"],
@@ -338,19 +373,18 @@ try {
   }
   await page.goto(base + "/account");
   await expect(page.locator("main").first()).toBeVisible();
-  check("existing scanner, backtest, replay and account still render");
+  check("existing scanner, backtest, replay and account render");
   const noAuth = await browser.newContext();
-  const unauthorized = await noAuth.request.get(
-    `${base}/api/arbitrage/opportunities`,
-  );
-  expect(unauthorized.status()).toBe(401);
+  expect(
+    (await noAuth.request.get(`${base}/api/arbitrage/opportunities`)).status(),
+  ).toBe(401);
   await noAuth.close();
   const csrf = await context.request.put(`${base}/api/arbitrage/preferences`, {
     headers: { Origin: "https://evil.test" },
-    data: saved,
+    data: { settings: defaults, favorites: [] },
   });
   expect(csrf.status()).toBe(403);
-  check("real gateway authentication and cross-site protection");
+  check("gateway authentication and cross-site write protection");
   expect(errors).toEqual([]);
   result.ok = true;
 } catch (e) {

@@ -1,0 +1,18 @@
+# server01 only: use its existing awg0 VPN for Gate's public traffic.
+# Redis remains reachable through the normal application network.
+services:
+  arbitrage_gateio:
+    networks:
+      default: {}
+      arbitrage_gate_egress:
+        ipv4_address: 172.31.254.2
+        gw_priority: 1
+
+networks:
+  arbitrage_gate_egress:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1420"
+    ipam:
+      config:
+        - subnet: 172.31.254.0/24

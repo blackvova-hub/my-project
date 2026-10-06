@@ -16,6 +16,8 @@ import (
 
 // Snapshot channels deliberately avoid unreliable reconstruction of partial deltas.
 // Every supported depth message replaces the entire advertised top-five book.
+type invalidBookError struct{ error }
+
 func DecodeBook(exchange, kind string, payload []byte, instruments map[string]market.Instrument, received time.Time) (market.Book, bool, error) {
 	var root Record
 	d := json.NewDecoder(strings.NewReader(string(payload)))
@@ -94,6 +96,18 @@ func DecodeBook(exchange, kind string, payload []byte, instruments map[string]ma
 		if root["error"] != nil {
 			return market.Book{}, false, errors.New("gate subscription rejected")
 		}
+		if str(root, "channel") == "futures.book_ticker" || str(root, "channel") == "spot.book_ticker" {
+			if str(root, "event") != "update" {
+				return market.Book{}, false, nil
+			}
+			x := nested(root, "result")
+			native = str(x, "s")
+			bids = []any{[]any{x["b"], x["B"]}}
+			asks = []any{[]any{x["a"], x["A"]}}
+			ts = int64(number(x, "t"))
+			seq = int64(number(x, "u"))
+			break
+		}
 		wantEvent := "update"
 		if kind == "perpetual" {
 			wantEvent = "all"
@@ -160,7 +174,8 @@ func DecodeBook(exchange, kind string, payload []byte, instruments map[string]ma
 	market.SortLevels(b.Bids, true)
 	market.SortLevels(b.Asks, false)
 	if err := b.Validate(); err != nil {
-		return market.Book{}, false, err
+		b.Valid = false
+		return b, false, invalidBookError{err}
 	}
 	return b, true, nil
 }
@@ -244,80 +259,87 @@ func (c *Client) Stream(ctx context.Context, kind string, list []market.Instrume
 		}
 		return conn.WriteJSON(v)
 	}
-	go func() { <-ctx.Done(); conn.Close() }()
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() { <-streamCtx.Done(); conn.Close() }()
 	defer onConnect(false)
 	byNative := map[string]market.Instrument{}
 	for _, i := range list {
 		byNative[i.Native] = i
 	}
-	for start := 0; start < len(list); start += 10 {
-		end := min(start+10, len(list))
-		chunk := list[start:end]
-		switch c.Exchange {
-		case "binance":
-			args := []string{}
-			for _, i := range chunk {
-				args = append(args, strings.ToLower(i.Native)+"@depth5@100ms")
-			}
-			err = write(map[string]any{"method": "SUBSCRIBE", "params": args, "id": start + 1})
-		case "bybit":
-			args := []string{}
-			for _, i := range chunk {
-				args = append(args, "orderbook.1."+i.Native)
-			}
-			err = write(map[string]any{"op": "subscribe", "args": args})
-		case "okx", "bitget":
-			args := []map[string]string{}
-			for _, i := range chunk {
-				arg := map[string]string{"channel": "books5", "instId": i.Native}
-				if c.Exchange == "bitget" {
-					arg["instType"] = "SPOT"
-					if kind == "perpetual" {
-						arg["instType"] = "USDT-FUTURES"
+	var subscriptions sync.WaitGroup
+	subscriptions.Add(1)
+	defer func() { cancel(); conn.Close(); subscriptions.Wait() }()
+	go func() {
+		defer subscriptions.Done()
+		for start := 0; start < len(list); start += 10 {
+			end := min(start+10, len(list))
+			chunk := list[start:end]
+			switch c.Exchange {
+			case "binance":
+				args := []string{}
+				for _, i := range chunk {
+					args = append(args, strings.ToLower(i.Native)+"@depth5@100ms")
+				}
+				err = write(map[string]any{"method": "SUBSCRIBE", "params": args, "id": start + 1})
+			case "bybit":
+				args := []string{}
+				for _, i := range chunk {
+					args = append(args, "orderbook.1."+i.Native)
+				}
+				err = write(map[string]any{"op": "subscribe", "args": args})
+			case "okx", "bitget":
+				args := []map[string]string{}
+				for _, i := range chunk {
+					arg := map[string]string{"channel": "books5", "instId": i.Native}
+					if c.Exchange == "bitget" {
+						arg["instType"] = "SPOT"
+						if kind == "perpetual" {
+							arg["instType"] = "USDT-FUTURES"
+						}
+					}
+					args = append(args, arg)
+				}
+				err = write(map[string]any{"op": "subscribe", "args": args})
+			case "gateio":
+				channel := "spot.book_ticker"
+				if kind == "perpetual" {
+					channel = "futures.book_ticker"
+				}
+				args := []string{}
+				for _, i := range chunk {
+					args = append(args, i.Native)
+				}
+				err = write(map[string]any{"time": time.Now().Unix(), "channel": channel, "event": "subscribe", "payload": args})
+			case "kucoin":
+				prefix := "/spotMarket/level2Depth5:"
+				if kind == "perpetual" {
+					prefix = "/contractMarket/level2Depth5:"
+				}
+				for _, i := range chunk {
+					err = write(map[string]any{"id": fmt.Sprint(time.Now().UnixNano()), "type": "subscribe", "topic": prefix + i.Native, "response": true})
+					if err != nil {
+						break
+					}
+					select {
+					case <-streamCtx.Done():
+						return
+					case <-time.After(120 * time.Millisecond):
 					}
 				}
-				args = append(args, arg)
 			}
-			err = write(map[string]any{"op": "subscribe", "args": args})
-		case "gateio":
-			channel := "spot.order_book"
-			if kind == "perpetual" {
-				channel = "futures.order_book"
+			if err != nil {
+				conn.Close()
+				return
 			}
-			for _, i := range chunk {
-				interval := "100ms"
-				if kind == "perpetual" {
-					interval = "0"
-				}
-				err = write(map[string]any{"time": time.Now().Unix(), "channel": channel, "event": "subscribe", "payload": []string{i.Native, "5", interval}})
-				if err != nil {
-					break
-				}
-			}
-		case "kucoin":
-			prefix := "/spotMarket/level2Depth5:"
-			if kind == "perpetual" {
-				prefix = "/contractMarket/level2Depth5:"
-			}
-			for _, i := range chunk {
-				err = write(map[string]any{"id": fmt.Sprint(time.Now().UnixNano()), "type": "subscribe", "topic": prefix + i.Native, "response": true})
-				if err != nil {
-					break
-				}
+			select {
+			case <-streamCtx.Done():
+				return
+			case <-time.After(250 * time.Millisecond):
 			}
 		}
-		if err != nil {
-			return err
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(250 * time.Millisecond):
-		}
-	}
-	onConnect(true)
-	streamCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+		onConnect(true)
+	}()
 	// A cancelled connection must stop ping goroutines before reconnecting.
 	go func() {
 		t := time.NewTicker(pingInterval)
@@ -361,6 +383,11 @@ func (c *Client) Stream(ctx context.Context, kind string, list []market.Instrume
 		}
 		b, ok, e := DecodeBook(c.Exchange, kind, body, byNative, time.Now())
 		if e != nil {
+			var invalid invalidBookError
+			if errors.As(e, &invalid) {
+				onBook(b)
+				continue
+			}
 			return e
 		}
 		if ok {

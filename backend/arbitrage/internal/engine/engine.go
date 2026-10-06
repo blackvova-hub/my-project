@@ -13,6 +13,10 @@ import (
 )
 
 type Query struct {
+	Simple        bool     `json:"simple"`
+	Search        string   `json:"search,omitempty"`
+	Offset        int      `json:"offset,omitempty"`
+	Routes        []string `json:"routes,omitempty"`
 	Strategy      string   `json:"strategy"`
 	Amount        float64  `json:"amount"`
 	MinSpread     float64  `json:"minSpread"`
@@ -29,9 +33,23 @@ type Query struct {
 }
 
 func Defaults() Query {
-	return Query{Strategy: "spot-perpetual", Amount: 1000, MinSpread: 0.1, MaxAgeMS: 10000, HorizonHours: 24, ExitSpread: 0, Exchanges: append([]string{}, market.Exchanges...), InterExchange: true, Sort: "spread", Limit: 100}
+	return Query{Simple: true, Strategy: "spot-perpetual", Amount: 1000, MinSpread: 0, MaxAgeMS: 10000, HorizonHours: 24, Exchanges: append([]string{}, market.Exchanges...), InterExchange: true, Sort: "spread", Limit: 100}
 }
 func (q Query) Validate() error {
+	if len(q.Routes) > 200 {
+		return errors.New("Слишком много связок")
+	}
+	for _, id := range q.Routes {
+		if len(id) != 24 {
+			return errors.New("Некорректная связка")
+		}
+		if _, err := hex.DecodeString(id); err != nil {
+			return errors.New("Некорректная связка")
+		}
+	}
+	if q.Offset < 0 || q.Offset > 1000000 || len(q.Search) > 30 || (q.Search != "" && strings.ContainsAny(q.Search, " /:?&")) {
+		return errors.New("Некорректный поиск")
+	}
 	if q.Strategy != "spot-perpetual" && q.Strategy != "perpetual-perpetual" && q.Strategy != "spot-spot" {
 		return errors.New("Некорректный режим")
 	}
@@ -162,11 +180,25 @@ func funding(f *market.Funding, now time.Time, hours int) (float64, int, bool) {
 	return f.Rate * float64(n), n, true
 }
 func Calculate(b, s market.Book, q Query, now time.Time) (Opportunity, bool) {
-	if b.Instrument.Asset != s.Instrument.Asset || b.Instrument.ID == s.Instrument.ID || (q.InterExchange && b.Instrument.Exchange == s.Instrument.Exchange) || !b.Fresh(now, time.Duration(q.MaxAgeMS)*time.Millisecond) || !s.Fresh(now, time.Duration(q.MaxAgeMS)*time.Millisecond) {
+	if b.Instrument.Identity() != s.Instrument.Identity() || b.Instrument.ID == s.Instrument.ID || (q.InterExchange && b.Instrument.Exchange == s.Instrument.Exchange) || !b.Fresh(now, time.Duration(q.MaxAgeMS)*time.Millisecond) || !s.Fresh(now, time.Duration(q.MaxAgeMS)*time.Millisecond) {
 		return Opportunity{}, false
 	}
 	if q.Strategy == "spot-perpetual" && (b.Instrument.Market != "spot" || s.Instrument.Market != "perpetual") || q.Strategy == "spot-spot" && (b.Instrument.Market != "spot" || s.Instrument.Market != "spot") || q.Strategy == "perpetual-perpetual" && (b.Instrument.Market != "perpetual" || s.Instrument.Market != "perpetual") {
 		return Opportunity{}, false
+	}
+	if q.Simple {
+		// Show prices that can actually be matched at the best bid/ask, with
+		// the same rounded base quantity on both venues. No hidden budget.
+		bp, sp := b.Asks[0].Price, s.Bids[0].Price
+		qty := commonQuantity(math.Min(b.Asks[0].Quantity, s.Bids[0].Quantity), b.Instrument.Step, s.Instrument.Step)
+		if sp <= bp || qty <= 0 || qty < b.Instrument.MinQuantity || qty < s.Instrument.MinQuantity || qty*bp < b.Instrument.MinNotional || qty*sp < s.Instrument.MinNotional {
+			return Opportunity{}, false
+		}
+		spread := (sp/bp - 1) * 100
+		o := Opportunity{ID: RouteID(b.Instrument.ID, s.Instrument.ID), Asset: b.Instrument.Asset, Strategy: q.Strategy, Quantity: qty, EntrySpreadPct: spread, QuoteSpreadPct: spread, DepthUSDT: qty * bp, AgeMS: now.UnixMilli() - min(b.QuoteAt(), s.QuoteAt()), CalculatedAt: now.UnixMilli()}
+		o.Buy = Leg{Instrument: b.Instrument, Price: bp, Notional: qty * bp, BookAt: b.QuoteAt(), Bids: b.Bids, Asks: b.Asks}
+		o.Sell = Leg{Instrument: s.Instrument, Price: sp, Notional: qty * sp, BookAt: s.QuoteAt(), Bids: s.Bids, Asks: s.Asks}
+		return o, true
 	}
 	qty := commonQuantity(q.Amount/b.Asks[0].Price, b.Instrument.Step, s.Instrument.Step)
 	bp, ok := market.VWAP(b.Asks, qty)
@@ -230,14 +262,21 @@ func Scan(books []market.Book, q Query, now time.Time) []Opportunity {
 	}
 	groups := map[string][]market.Book{}
 	for _, b := range books {
-		if exchangeSet[b.Instrument.Exchange] && (len(assets) == 0 || assets[b.Instrument.Asset]) && b.Fresh(now, time.Duration(q.MaxAgeMS)*time.Millisecond) {
-			groups[b.Instrument.Asset] = append(groups[b.Instrument.Asset], b)
+		if exchangeSet[b.Instrument.Exchange] && (len(assets) == 0 || assets[b.Instrument.Asset]) && strings.Contains(b.Instrument.Asset, strings.ToUpper(q.Search)) && b.Fresh(now, time.Duration(q.MaxAgeMS)*time.Millisecond) {
+			groups[b.Instrument.Identity()] = append(groups[b.Instrument.Identity()], b)
 		}
 	}
 	out := make([]Opportunity, 0)
+	routes := map[string]bool{}
+	for _, id := range q.Routes {
+		routes[id] = true
+	}
 	for _, group := range groups {
 		for _, b := range group {
 			for _, s := range group {
+				if len(routes) > 0 && !routes[RouteID(b.Instrument.ID, s.Instrument.ID)] {
+					continue
+				}
 				if o, ok := Calculate(b, s, q, now); ok {
 					out = append(out, o)
 				}
@@ -266,7 +305,7 @@ func Scan(books []market.Book, q Query, now time.Time) []Opportunity {
 		}
 		return a.EntrySpreadPct > b.EntrySpreadPct
 	})
-	if len(out) > q.Limit {
+	if q.Limit > 0 && len(out) > q.Limit {
 		out = out[:q.Limit]
 	}
 	return out
@@ -289,7 +328,7 @@ func Parse(raw map[string][]string) (Query, error) {
 			}
 		}
 	}
-	for key, target := range map[string]*int{"horizonHours": &q.HorizonHours, "limit": &q.Limit} {
+	for key, target := range map[string]*int{"horizonHours": &q.HorizonHours, "limit": &q.Limit, "offset": &q.Offset} {
 		if v := get(key); v != "" {
 			*target, err = strconv.Atoi(v)
 			if err != nil {
@@ -305,6 +344,16 @@ func Parse(raw map[string][]string) (Query, error) {
 	}
 	if v := get("strategy"); v != "" {
 		q.Strategy = v
+	}
+	q.Search = strings.ToUpper(strings.TrimSpace(get("search")))
+	if v := get("routes"); v != "" {
+		q.Routes = strings.Split(v, ",")
+	}
+	if v := get("simple"); v != "" {
+		q.Simple, err = strconv.ParseBool(v)
+		if err != nil {
+			return q, errors.New("Некорректный режим расчёта")
+		}
 	}
 	if v := get("sort"); v != "" {
 		q.Sort = v

@@ -1,0 +1,146 @@
+[
+  {
+    "module": "backend\\api",
+    "checks": [
+      {
+        "command": "go test ./...",
+        "exitCode": 0,
+        "output": "ok  \tbackend\t(cached)\nok  \tbackend/cmd/api\t0.024s\nok  \tbackend/internal/auth\t(cached)\n?   \tbackend/internal/config\t[no test files]\nok  \tbackend/internal/database\t(cached)\n?   \tbackend/internal/httpapi/admin\t[no test files]\nok  \tbackend/internal/httpapi/ai\t(cached)\nok  \tbackend/internal/httpapi/analytics\t(cached)\nok  \tbackend/internal/httpapi/arbitrageapi\t0.035s\nok  \tbackend/internal/httpapi/backtest\t(cached)\nok  \tbackend/internal/httpapi/chartconfig\t(cached)\n?   \tbackend/internal/httpapi/community\t[no test files]\nok  \tbackend/internal/httpapi/market\t(cached)\nok  \tbackend/internal/httpapi/news\t(cached)\nok  \tbackend/internal/httpapi/scanner\t(cached)\nok  \tbackend/internal/httpapi/similarity\t(cached)\nok  \tbackend/internal/telegram/accountbot\t(cached)\n"
+      },
+      {
+        "command": "go vet ./...",
+        "exitCode": 0,
+        "output": ""
+      }
+    ],
+    "seconds": 2.97
+  },
+  {
+    "module": "backend\\arbitrage",
+    "checks": [
+      {
+        "command": "go test ./...",
+        "exitCode": 0,
+        "output": "?   \tshortlong/arbitrage/cmd/check\t[no test files]\n?   \tshortlong/arbitrage/cmd/collector\t[no test files]\n?   \tshortlong/arbitrage/cmd/engine\t[no test files]\nok  \tshortlong/arbitrage/internal/collector\t(cached)\nok  \tshortlong/arbitrage/internal/engine\t(cached)\nok  \tshortlong/arbitrage/internal/exchanges\t(cached)\nok  \tshortlong/arbitrage/internal/market\t(cached)\nok  \tshortlong/arbitrage/internal/service\t0.014s\n"
+      },
+      {
+        "command": "go vet ./...",
+        "exitCode": 0,
+        "output": ""
+      }
+    ],
+    "seconds": 1.71
+  },
+  {
+    "module": "backend\\backtest",
+    "checks": [
+      {
+        "command": "go test ./...",
+        "exitCode": 0,
+        "output": "ok  \tshortlong/backtest\t(cached)\nok  \tshortlong/backtest/archivesync\t(cached)\n?   \tshortlong/backtest/cmd/archive-sync\t[no test files]\n?   \tshortlong/backtest/cmd/history-sync\t[no test files]\n?   \tshortlong/backtest/cmd/worker\t[no test files]\nok  \tshortlong/backtest/engine\t(cached)\nok  \tshortlong/backtest/historysync\t(cached)\nok  \tshortlong/backtest/jobs\t(cached)\nok  \tshortlong/backtest/marketdata\t(cached)\n"
+      },
+      {
+        "command": "go vet ./...",
+        "exitCode": 0,
+        "output": ""
+      }
+    ],
+    "seconds": 1.19
+  },
+  {
+    "module": "backend\\news\\collector",
+    "checks": [
+      {
+        "command": "go test ./...",
+        "exitCode": 0,
+        "output": "ok  \tnews-bot/cmd/collector\t(cached)\nok  \tnews-bot/internal/sources\t(cached)\nok  \tnews-bot/internal/sources/telegrampreview\t(cached)\n"
+      },
+      {
+        "command": "go vet ./...",
+        "exitCode": 0,
+        "output": ""
+      }
+    ],
+    "seconds": 0.97
+  },
+  {
+    "module": "backend\\scanners\\market-data",
+    "checks": [
+      {
+        "command": "go test ./...",
+        "exitCode": 0,
+        "output": "ok  \tmarket-scanner/cmd/scanner\t(cached)\n"
+      },
+      {
+        "command": "go vet ./...",
+        "exitCode": 0,
+        "output": ""
+      }
+    ],
+    "seconds": 0.95
+  },
+  {
+    "module": "backend\\similarity",
+    "checks": [
+      {
+        "command": "go test ./...",
+        "exitCode": 0,
+        "output": "ok  \tshortlong/similarity\t(cached)\n?   \tshortlong/similarity/cmd/worker\t[no test files]\n"
+      },
+      {
+        "command": "go vet ./...",
+        "exitCode": 0,
+        "output": ""
+      }
+    ],
+    "seconds": 0.95
+  },
+  {
+    "module": "backend\\telegram\\admin-bot",
+    "checks": [
+      {
+        "command": "go test ./...",
+        "exitCode": 0,
+        "output": "ok  \ttelegram-admin-bot/cmd/admin-bot\t(cached)\n"
+      },
+      {
+        "command": "go vet ./...",
+        "exitCode": 0,
+        "output": ""
+      }
+    ],
+    "seconds": 0.8
+  },
+  {
+    "module": "backend\\telegram\\news-publisher",
+    "checks": [
+      {
+        "command": "go test ./...",
+        "exitCode": 0,
+        "output": "ok  \ttelegram-news-publisher/cmd/news-publisher\t(cached)\n"
+      },
+      {
+        "command": "go vet ./...",
+        "exitCode": 0,
+        "output": ""
+      }
+    ],
+    "seconds": 0.82
+  },
+  {
+    "module": "backend\\workers\\alert-engine",
+    "checks": [
+      {
+        "command": "go test ./...",
+        "exitCode": 0,
+        "output": "ok  \talert-engine/cmd/alert-engine\t(cached)\nok  \talert-engine/cmd/dlq-replay\t(cached)\n?   \talert-engine/internal/onchain\t[no test files]\n?   \talert-engine/internal/onchain/providers/blockstream\t[no test files]\nok  \talert-engine/internal/onchain/providers/etherscan\t(cached)\n?   \talert-engine/internal/onchain/providers/solana\t[no test files]\n?   \talert-engine/internal/onchain/providers/trongrid\t[no test files]\n"
+      },
+      {
+        "command": "go vet ./...",
+        "exitCode": 0,
+        "output": ""
+      }
+    ],
+    "seconds": 1.27
+  }
+]

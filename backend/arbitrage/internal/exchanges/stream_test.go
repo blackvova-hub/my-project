@@ -62,3 +62,17 @@ func TestNumbersDoNotMakeUnknownFundingZero(t *testing.T) {
 		}
 	}
 }
+func TestGateFuturesBestQuotesAreCompleteAndKeepDecimalLots(t *testing.T) {
+	i := instrument("gateio")
+	i.QuantityScale = .001
+	raw := `{"channel":"futures.book_ticker","event":"update","result":{"t":1800000000000,"u":43,"s":"BTCUSDT","b":"99","B":"12.5","a":"100","A":"15.25"}}`
+	b, ok, err := DecodeBook("gateio", "perpetual", []byte(raw), map[string]market.Instrument{"BTCUSDT": i}, time.Unix(1800000000, 0))
+	if !ok || err != nil || len(b.Bids) != 1 || len(b.Asks) != 1 || b.Bids[0].Quantity != .0125 || b.Asks[0].Quantity != .01525 || b.Sequence != 43 {
+		t.Fatal(b, err)
+	}
+	raw = `{"channel":"futures.book_ticker","event":"update","result":{"s":"BTCUSDT","b":"","B":0,"a":"100","A":1}}`
+	b, ok, err = DecodeBook("gateio", "perpetual", []byte(raw), map[string]market.Instrument{"BTCUSDT": i}, time.Now())
+	if ok || err == nil || b.Valid {
+		t.Fatal("empty best quotes must invalidate the instrument")
+	}
+}

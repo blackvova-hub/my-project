@@ -1,0 +1,140 @@
+{
+  "at": 1791281522912,
+  "assets": 2191,
+  "total": 1066,
+  "sources": [
+    {
+      "connections": 3,
+      "connected": 3,
+      "exchange": "binance",
+      "market": "spot",
+      "state": "live",
+      "instruments": 502,
+      "books": 427,
+      "updatedAt": 1791281521827,
+      "lastBookAt": 1791281521694
+    },
+    {
+      "connections": 3,
+      "connected": 2,
+      "exchange": "binance",
+      "market": "perpetual",
+      "state": "live",
+      "message": "Some streams are connecting or reconnecting",
+      "instruments": 525,
+      "books": 338,
+      "updatedAt": 1791281521827,
+      "lastBookAt": 1791281521785
+    },
+    {
+      "connections": 4,
+      "connected": 4,
+      "exchange": "bybit",
+      "market": "spot",
+      "state": "live",
+      "instruments": 392,
+      "books": 361,
+      "updatedAt": 1791281522028,
+      "lastBookAt": 1791281522017
+    },
+    {
+      "connections": 8,
+      "connected": 8,
+      "exchange": "bybit",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 782,
+      "books": 771,
+      "updatedAt": 1791281522028,
+      "lastBookAt": 1791281522018
+    },
+    {
+      "connections": 5,
+      "connected": 5,
+      "exchange": "okx",
+      "market": "spot",
+      "state": "live",
+      "instruments": 403,
+      "books": 370,
+      "updatedAt": 1791281521931,
+      "lastBookAt": 1791281521910
+    },
+    {
+      "connections": 5,
+      "connected": 5,
+      "exchange": "okx",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 485,
+      "books": 446,
+      "updatedAt": 1791281521931,
+      "lastBookAt": 1791281521916
+    },
+    {
+      "connections": 84,
+      "connected": 84,
+      "exchange": "bitget",
+      "market": "spot",
+      "state": "live",
+      "instruments": 3321,
+      "books": 443,
+      "updatedAt": 1791281521656,
+      "lastBookAt": 1791281521642
+    },
+    {
+      "connections": 12,
+      "connected": 12,
+      "exchange": "bitget",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 466,
+      "books": 397,
+      "updatedAt": 1791281521656,
+      "lastBookAt": 1791281521640
+    },
+    {
+      "connections": 42,
+      "connected": 42,
+      "exchange": "gateio",
+      "market": "spot",
+      "state": "live",
+      "instruments": 2052,
+      "books": 827,
+      "updatedAt": 1791281521715,
+      "lastBookAt": 1791281521704
+    },
+    {
+      "connections": 12,
+      "connected": 12,
+      "exchange": "gateio",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 574,
+      "books": 338,
+      "updatedAt": 1791281521715,
+      "lastBookAt": 1791281521707
+    },
+    {
+      "connections": 22,
+      "connected": 22,
+      "exchange": "kucoin",
+      "market": "spot",
+      "state": "live",
+      "instruments": 843,
+      "books": 700,
+      "updatedAt": 1791281521866,
+      "lastBookAt": 1791281521857
+    },
+    {
+      "connections": 18,
+      "connected": 18,
+      "exchange": "kucoin",
+      "market": "perpetual",
+      "state": "live",
+      "instruments": 682,
+      "books": 682,
+      "updatedAt": 1791281521866,
+      "lastBookAt": 1791281521856
+    }
+  ]
+}

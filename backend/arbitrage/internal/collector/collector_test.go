@@ -53,6 +53,35 @@ func TestFundingAttachmentDoesNotRefreshOrderBook(t *testing.T) {
 		t.Fatal("funding made stale quotes fresh")
 	}
 }
+func TestShardsKeepAllInstrumentsAndIsolateDisconnect(t *testing.T) {
+	list := make([]market.Instrument, 2301)
+	for _, e := range market.Exchanges {
+		shards := Shards(e, list)
+		total := 0
+		for _, s := range shards {
+			total += len(s)
+			if len(s) > 200 {
+				t.Fatal("oversized subscription", e)
+			}
+		}
+		if total != len(list) || len(shards) < 2 {
+			t.Fatal("catalog truncated", e)
+		}
+	}
+	c := New(exchanges.New("bybit", market.DefaultAssets), nil)
+	first := quote(time.Now())
+	second := first
+	second.Instrument.Native = "ETHUSDT"
+	second.Instrument.ID = second.Instrument.Key()
+	c.onBook(first)
+	c.onBook(second)
+	c.connections["spot"] = []bool{true, true}
+	c.status["spot"] = market.Status{Connections: 2, Connected: 2, State: "live"}
+	c.shardState("spot", 0, []market.Instrument{first.Instrument}, false)
+	if c.books[first.Instrument.ID].Valid || !c.books[second.Instrument.ID].Valid || c.status["spot"].Connected != 1 || c.status["spot"].State != "live" {
+		t.Fatal("one disconnect invalidates unrelated shard")
+	}
+}
 func TestRedisRepublishAfterLostHashKeepsOriginalTimestamp(t *testing.T) {
 	addr := os.Getenv("ARBITRAGE_TEST_REDIS_ADDR")
 	if addr == "" {

@@ -1,73 +1,72 @@
 # Арбитражный backend
 
-Отдельный Go-модуль и семь процессов: шесть сборщиков и один расчётный HTTP-сервис. Использует публичные API Binance, Bybit, OKX, Bitget, Gate.io и KuCoin. Биржевые ключи не нужны. Исполнение ордеров не реализовано.
+Отдельный Go-модуль: шесть collector и один engine. Публичные API Binance, Bybit, OKX, Bitget, Gate.io, KuCoin; спот и бессрочные линейные USDT-фьючерсы. Биржевые ключи не требуются. Ордеров сервис не отправляет.
 
-## Запуск в существующем проекте
+## Поведение по умолчанию
 
-Из `C:/dev/backend`, с существующим настроенным `.env`:
+Все активные поддерживаемые USDT-рынки обнаруживаются через REST-каталоги, включая пагинацию Bybit. Фиксированного списка из 30 монет нет. Каталог обновляется каждые 30 минут. `ARBITRAGE_ASSETS=*` — все монеты; явный список остаётся доступен администратору.
+
+Соединения разбиваются на группы: Binance 200, Bybit/OKX 100, Bitget/KuCoin 40, Gate 50 инструментов. Подключения запускаются постепенно; отдельные запросы подписки ограничиваются по частоте. Чтение и heartbeat работают во время подписки. Отдельная группа переподключается независимо, только её стаканы становятся недействительными.
+
+Цена покупки — лучший ask, продажи — лучший bid. Разница `(bid / ask − 1) × 100%`. «Доступно, USDT» — стоимость одинакового количества базового актива, доступного на обеих биржах по этим ценам. Количество округляется до общего шага; минимальные ордера проверяются. Показываются только положительные разницы и свежие котировки, без скрытого бюджета, комиссий, funding или сценария закрытия. Разница не обозначается как прибыль.
+
+Bybit и Gate передают первый уровень; остальные каналы — снимки до пяти уровней. Gate использует `spot.book_ticker` и `futures.book_ticker`: актуальные лучшие цены и количества с меньшим сетевым потоком. Некорректная книга исключает отдельный инструмент, не отключает весь поток. Устаревшие кадры не заменяют новые; Bybit reset с `u=1` поддержан.
+
+Нормализация учитывает множители контрактов, `XBT → BTC` и явно проверенные `1000PEPE/SHIB/BONK/FLOKI`. `1INCH` сохраняется как отдельный тикер; произвольные числовые префиксы не удаляются. Gate-контракты с классификацией stocks/metals/indices/forex/commodities исключаются. Для UP разделены Superform (Bitget/KuCoin spot) и Unitas (OKX/Gate); неизвестные UP изолируются по бирже/рынку. Расчёт и длительность сопоставляют `assetIdentity`, а не только тикер. Совпадение другого нового тикера всё ещё не гарантирует идентичность токенов: автоматической проверки всех адресов контрактов/сетей сейчас нет. Нестандартные переименования требуют отдельного сопоставления.
+
+## Запуск
+
+Из `backend` с существующим `.env`:
 
 ```powershell
 docker compose -f compose.yaml -f compose.local.yaml build arbitrage_engine backend frontend
-docker compose -f compose.yaml -f compose.local.yaml up -d --no-build --force-recreate backend frontend arbitrage_engine arbitrage_binance arbitrage_bybit arbitrage_okx arbitrage_bitget arbitrage_gateio arbitrage_kucoin
+docker compose -f compose.yaml -f compose.local.yaml up -d --no-build --no-deps backend frontend arbitrage_engine arbitrage_binance arbitrage_bybit arbitrage_okx arbitrage_bitget arbitrage_gateio arbitrage_kucoin
 ```
 
-Страница: `http://localhost:3000/arbitrage`, после обычного входа. Команда перезапускает API, frontend и новые сервисы. На сервере используется основной `compose.yaml` без локального override. Публичный порт engine не открывается: доступ к нему идёт через авторизованный API сайта.
+Страница: `http://localhost:3000/arbitrage`, после обычного входа. Engine не открывает внешний порт. На server01 используется `/opt/shortlong/backend/deploy/server/compose.sh` и сайт `http://192.168.0.124/arbitrage`.
 
-Проверка состояния:
-
-```powershell
-docker compose -f compose.yaml -f compose.local.yaml ps arbitrage_engine arbitrage_binance arbitrage_bybit arbitrage_okx arbitrage_bitget arbitrage_gateio arbitrage_kucoin
-docker compose -f compose.yaml -f compose.local.yaml logs --tail 50 arbitrage_engine arbitrage_bybit
-```
-
-`health` engine проверяет актуальность чтения Redis. Состояние каждого биржевого рынка, количество свежих стаканов и покрытие показываются на странице. Работающий процесс сам по себе не означает доступность всех бирж.
-
-## Параметры
+## Настройки сервиса
 
 | Переменная | Назначение |
 | --- | --- |
-| `EXCHANGE` | Биржа отдельного collector; задаётся Compose |
+| `EXCHANGE` | Биржа collector; задаётся Compose |
 | `REDIS_ADDR`, `REDIS_PASSWORD` | Существующий Redis |
-| `ARBITRAGE_ASSETS` | Список базовых монет; по умолчанию 30, применяется ко всем семи процессам |
+| `ARBITRAGE_ASSETS` | По умолчанию `*`; необязательный административный список |
 | `HTTP_ADDR` | Engine, по умолчанию `:8093` |
-| `ARBITRAGE_URL` | В существующем API: `http://arbitrage_engine:8093` |
+| `ARBITRAGE_URL` | Адрес engine в существующем API |
 
-Для самостоятельного запуска collector поддерживает `<EXCHANGE>_SPOT_BASE_URL`, `<EXCHANGE>_FUTURES_BASE_URL` и, кроме KuCoin, соответствующие `*_WS_URL`. Префикс Gate.io — `GATEIO`. В Compose индивидуальные адреса задаются через `environment` сервиса в override-файле. KuCoin получает адрес и временный публичный токен через `bullet-public`.
+Collector поддерживает `<EXCHANGE>_SPOT_BASE_URL`, `<EXCHANGE>_FUTURES_BASE_URL`, `*_WS_URL` (KuCoin получает URL через публичный `bullet-public`). Для Gate префикс `GATEIO`. Внешний HTTP timeout 45 с, без переадресаций; Gate REST использует HTTP/1.1 с проверкой TLS.
 
-Добавление монет в `ARBITRAGE_ASSETS` требует проверки идентичности актива на биржах. Совпадение тикеров само по себе недостаточно. Поддержаны явные соответствия `XBT → BTC` и контракты `1000PEPE`, `1000SHIB`, `1000BONK`, `1000FLOKI`; произвольное удаление числовых префиксов запрещено.
+На server01 прямой маршрут к Gate сильно замедлял полные каталоги. Только Gate collector имеет дополнительную сеть `172.31.254.0/24`, постоянный адрес `.2`, MTU 1420 и приоритет внешнего gateway. `arbitrage-gate-routing.py` поддерживает правило **from 172.31.254.2 → table 51820**, используя уже настроенный `awg0`. Основной маршрут сервера и сеть остальных сервисов не меняются. Redis доступен через обычную Docker-сеть. Это серверный override `deploy/server/compose.arbitrage-gate-vpn.yaml`, автоматически подключаемый серверным wrapper при наличии файла. Нужны существующий VPN и Compose ≥2.33.1; локальный Compose его не использует. Systemd service/timer устанавливаются на server01 отдельно; они не создают VPN и не читают его ключи.
 
-## Интервалы и хранение
+## Хранение
 
-- Стаканы: публичные WebSocket; снимки первого уровня Bybit и до пяти уровней остальных бирж.
-- Redis: публикация полных небольших снимков раз в 500 мс; ключи `arbitrage:v1:*`.
-- Engine: общий снимок раз в секунду. Пользовательские фильтры применяются к нему, отдельные биржевые соединения для клиентов не создаются.
-- Frontend: запрос каждые 2 с, без фонового опроса скрытой вкладки; есть пауза.
-- Каталог: обновление через переподключение каждые 30 минут. Funding: запрос каждые 30 с; неизвестные или устаревшие ставки не заменяются нулём.
-- Возраст котировки: минимум времени биржи и получения, по умолчанию максимум 10 с. Пользователь выбирает 1–30 с. Потеря статуса сборщика сразу исключает рынок.
-- Длительность: непрерывный положительный спред лучшего bid/ask при свежести 10 с, проверка раз в секунду. После отключения или перезапуска engine отсчёт начинается заново.
-- История: выборочные наблюдения раз в 30 с, до 300 подходящих связок на каждый режим, с серверными базовыми параметрами: 1000 USDT, спред от −1 %, возраст 10 с. Хранение и выдача за последние 6 ч; не полная история всех связок и не исторический PnL.
-- PostgreSQL: только индивидуальные настройки и избранное, таблица `arbitrage_preferences`, миграция `070_arbitrage.sql`.
+- Collector публикует атомарный полный снимок в Redis раз в 500 мс: один HSET на биржу, исходные времена сохраняются. Удалённые из каталога инструменты исчезают из хеша.
+- Engine читает снимок раз в секунду, декодирует каждую книгу один раз. Соединений с биржами для отдельных посетителей нет.
+- Пространство Redis `arbitrage:v1:*`. Стаканы TTL 30 с, состояния collector TTL 10 с. Используемые котировки не старше 10 с.
+- Frontend опрашивает API каждые 2 с; есть пауза. При старении цены связки не выдаются за актуальные.
+- Длительность — непрерывная положительная разница лучших bid/ask, проверяемая раз в секунду. После обрыва или перезапуска отсчёт начинается заново.
+- История: выборочные положительные связки, до 300 на каждый режим раз в 30 с, хранение 6 ч. Это не полная история всех монет; пропуски не соединяются линией.
+- PostgreSQL `arbitrage_preferences`: пользовательский выбор и избранное. Активного REST-опроса funding больше нет.
 
-## HTTP-контракт
+## HTTP
 
-Внутри сети engine: `GET /health`, `GET /opportunities`, `GET /history?id=<route-id>`.
+Внутри сети: `GET /health`, `/opportunities`, `/history?id=<route-id>`.
 
-Снаружи, через существующую авторизацию:
+Через авторизованный API сайта:
 
 ```text
-GET /api/arbitrage/opportunities
-GET /api/arbitrage/history?id=<24 hex characters>
+GET /api/arbitrage/opportunities?simple=true&strategy=spot-perpetual&search=BTC&limit=100&offset=0
+GET /api/arbitrage/history?id=<24 hex>
 GET /api/arbitrage/preferences
 PUT /api/arbitrage/preferences
 ```
 
-Параметры поиска: `strategy`, `amount`, `minSpread`, `maxAgeMs`, `horizonHours`, `exitSpread`, `feeSpot`, `feePerpetual`, `exchanges`, `assets`, `interExchange`, `sort`, `limit`. Комиссии в запросе — проценты. Funding в источниках — доля. Суммы — USDT, количество — единицы базовой монеты.
+Простой поиск: `strategy`, `exchanges`, `search` (подстрока тикера), `limit` 1–300, `offset`, `routes` (до 200 ID избранных). По умолчанию простая модель, разные биржи, положительная разница. В выдаче: `total`, `offset`, `universeMode`, `rows`, `books`, `sources`, `assets`, `configuredAssets`, `at`, `transport`. Общий счётчик относится ко всему результату, лимит — только к странице. Повторяющаяся книга передаётся один раз. Источники содержат количество рынков, свежих книг и подключённых групп.
 
-Ответ поиска: `rows`, `books`, `sources`, `assets`, `configuredAssets`, `at`, `transport`. `books` — словарь по ID инструмента: каждый стакан передаётся один раз. Frontend связывает его со строками, сохраняя единый снимок. `fundingEstimate` и `scenarioPnl` равны `null`, если свежего funding недостаточно. Пустая выдача и ошибка транспорта — разные состояния.
+Старый расчёт VWAP/комиссий оставлен как совместимый явный `simple=false` и покрыт отдельными тестами. Новый интерфейс его не вызывает. Funding collector не опрашивает, поэтому старый сценарий без актуальных ставок остаётся неопределённым. Старые пользовательские фильтры бюджета/комиссий/монет не ограничивают простой интерфейс; сохраняются режим, допустимый выбор бирж и избранное.
 
 ## Проверки
-
-Из этого каталога:
 
 ```powershell
 $env:GOWORK='off'
@@ -76,19 +75,15 @@ go vet ./...
 go run ./cmd/check
 ```
 
-Последняя команда делает реальную сетевую проверку каталогов, funding и WebSocket; ничего не торгует. Внешние таймауты и ограничения доступа возможны и отображаются в результате.
-
-Интеграционные Go-тесты подключаются только при заданном `ARBITRAGE_TEST_REDIS_ADDR`. Используют отдельные Redis DB 13 и 14; задавайте изолированный тестовый Redis. Тест PostgreSQL в модуле API использует `ARBITRAGE_TEST_DATABASE_URL`, создаёт и удаляет собственную схему.
-
-Проверка гонок, включая на Windows через Linux-контейнер:
+`cmd/check` читает полные каталоги, запускает такие же группы WS и за 90 с считает реально полученные книги. Он не гарантирует обновление каждой неликвидной монеты и не торгует.
 
 ```powershell
 docker build --target test -t shortlong-arbitrage-test:local .
 docker run --rm shortlong-arbitrage-test:local
 ```
 
-Для включения Redis-интеграций в контейнере добавьте `-e ARBITRAGE_TEST_REDIS_ADDR=host.docker.internal:26379`, если запущена изолированная инфраструктура `backend/backtest/compose.test.yaml`.
+Включение интеграций: `ARBITRAGE_TEST_REDIS_ADDR` для **изолированного** тестового Redis (DB 13/14). PostgreSQL-тест API использует `ARBITRAGE_TEST_DATABASE_URL` и отдельную схему.
 
-Фронтенд, из `frontend/web`: `npm run test:arbitrage`, `npm run build`, `npm run lint`. Реальная браузерная проверка: `npm run test:arbitrage:live` с `ARBITRAGE_E2E_STORAGE` либо `ARBITRAGE_E2E_EMAIL` и `ARBITRAGE_E2E_PASSWORD` тестового пользователя. Она временно меняет его настройки и восстанавливает исходные значения; для изначально отсутствующих настроек сохраняются стандартные параметры. Не используйте личную учётную запись для автоматических проверок.
+Frontend: `npm run test:arbitrage`, `npm run build`, `npm run lint`. Реальный браузер: `npm run test:arbitrage:live`, с обычными тестовыми credentials в `ARBITRAGE_E2E_EMAIL/PASSWORD` или `ARBITRAGE_E2E_STORAGE`. Проверка временно меняет тестовые preferences и восстанавливает их; изначально отсутствующие настройки восстанавливаются стандартными значениями. Ключи бирж и обход авторизации не используются.
 
-Подробный отчёт: [docs/arbitrage/report.md](../../docs/arbitrage/report.md).
+Актуальный отчёт: [docs/arbitrage/report.md](../../docs/arbitrage/report.md).
