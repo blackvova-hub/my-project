@@ -1,0 +1,504 @@
+{
+  "url": "http://192.168.0.130/charts",
+  "checks": [
+    "normal production login",
+    "real delayed REST history keeps full initial viewport despite early stream",
+    "render study chop_zone",
+    "render study wma",
+    "render study vwma",
+    "render study rma",
+    "render study dema",
+    "render study tema",
+    "render study trima",
+    "render study hma",
+    "render study alma",
+    "render study kama",
+    "render study hamming",
+    "render study ma_cross",
+    "render study ema_cross",
+    "render study bb_percent",
+    "render study bb_width",
+    "render study ao",
+    "render study ac",
+    "render study alligator",
+    "render study fractals",
+    "render study aroon",
+    "render study bop",
+    "render study obv",
+    "render study adl",
+    "render study efi",
+    "render study mfi",
+    "render study cmf",
+    "render study pvt",
+    "render study net_volume",
+    "render study donchian",
+    "render study keltner",
+    "render study chande_kroll",
+    "render study psar",
+    "render study momentum",
+    "render study williams_r",
+    "render study ultimate",
+    "render study stoch_rsi",
+    "render study connors_rsi",
+    "render study vortex",
+    "render study dmi",
+    "render study trix",
+    "render study tsi",
+    "render study smi_ergodic",
+    "render study rvi",
+    "render study rvi_volatility",
+    "render study choppiness",
+    "render study fisher",
+    "render study chaikin_volatility",
+    "render study chaikin_oscillator",
+    "render study volume_oscillator",
+    "render study price_oscillator",
+    "render study historical_volatility",
+    "render study zero_trend_volatility",
+    "render study mass_index",
+    "render study stddev",
+    "render study stderr",
+    "render study median_price",
+    "render study typical_price",
+    "render study average_price",
+    "render study pivots",
+    "render study klinger",
+    "render study volume_profile",
+    "render study visible_volume_profile",
+    "ALMA settings change calculation period",
+    "indicator favorites survive reload",
+    "Bybit historical CVD restriction is explicit",
+    "real history backfill and background worker calculation",
+    "real market study oi",
+    "real market study funding",
+    "real market study basis",
+    "real market study ratio",
+    "real market study oi_delta",
+    "real market study oi_candles",
+    "real market study funding_candles",
+    "real market study premium",
+    "real market study index_price",
+    "real market study oi_value",
+    "real market study top_accounts",
+    "real market study top_positions",
+    "real market study taker_volume",
+    "real market study taker_delta",
+    "real market study taker_value",
+    "real market study taker_value_delta",
+    "real market study cvd",
+    "real market study volume_ratio",
+    "real market study aggregate_volume",
+    "real market study aggregate_oi",
+    "explicit partial event history liquidations",
+    "explicit partial event history aggregate_liquidations",
+    "real market study fear_greed",
+    "new indicator cloud save and PostgreSQL round trip",
+    "real price comparison ratio",
+    "real price comparison spread",
+    "catalog Light Dark Green",
+    "mobile catalog without overflow",
+    "no browser runtime errors"
+  ],
+  "studies": [
+    {
+      "id": "chop_zone",
+      "points": 966
+    },
+    {
+      "id": "wma",
+      "points": 981
+    },
+    {
+      "id": "vwma",
+      "points": 981
+    },
+    {
+      "id": "rma",
+      "points": 981
+    },
+    {
+      "id": "dema",
+      "points": 962
+    },
+    {
+      "id": "tema",
+      "points": 943
+    },
+    {
+      "id": "trima",
+      "points": 981
+    },
+    {
+      "id": "hma",
+      "points": 978
+    },
+    {
+      "id": "alma",
+      "points": 981
+    },
+    {
+      "id": "kama",
+      "points": 990
+    },
+    {
+      "id": "hamming",
+      "points": 981
+    },
+    {
+      "id": "ma_cross",
+      "points": 1942
+    },
+    {
+      "id": "ema_cross",
+      "points": 1942
+    },
+    {
+      "id": "bb_percent",
+      "points": 981
+    },
+    {
+      "id": "bb_width",
+      "points": 981
+    },
+    {
+      "id": "ao",
+      "points": 967
+    },
+    {
+      "id": "ac",
+      "points": 963
+    },
+    {
+      "id": "alligator",
+      "points": 2961
+    },
+    {
+      "id": "fractals",
+      "points": 277
+    },
+    {
+      "id": "aroon",
+      "points": 1950
+    },
+    {
+      "id": "bop",
+      "points": 1000
+    },
+    {
+      "id": "obv",
+      "points": 1000
+    },
+    {
+      "id": "adl",
+      "points": 1000
+    },
+    {
+      "id": "efi",
+      "points": 987
+    },
+    {
+      "id": "mfi",
+      "points": 986
+    },
+    {
+      "id": "cmf",
+      "points": 981
+    },
+    {
+      "id": "pvt",
+      "points": 1000
+    },
+    {
+      "id": "net_volume",
+      "points": 999
+    },
+    {
+      "id": "donchian",
+      "points": 2943
+    },
+    {
+      "id": "keltner",
+      "points": 2943
+    },
+    {
+      "id": "chande_kroll",
+      "points": 1966
+    },
+    {
+      "id": "psar",
+      "points": 999
+    },
+    {
+      "id": "momentum",
+      "points": 990
+    },
+    {
+      "id": "williams_r",
+      "points": 987
+    },
+    {
+      "id": "ultimate",
+      "points": 972
+    },
+    {
+      "id": "stoch_rsi",
+      "points": 1940
+    },
+    {
+      "id": "connors_rsi",
+      "points": 900
+    },
+    {
+      "id": "vortex",
+      "points": 1972
+    },
+    {
+      "id": "dmi",
+      "points": 1972
+    },
+    {
+      "id": "trix",
+      "points": 948
+    },
+    {
+      "id": "tsi",
+      "points": 1914
+    },
+    {
+      "id": "smi_ergodic",
+      "points": 2920
+    },
+    {
+      "id": "rvi",
+      "points": 1973
+    },
+    {
+      "id": "rvi_volatility",
+      "points": 978
+    },
+    {
+      "id": "choppiness",
+      "points": 987
+    },
+    {
+      "id": "fisher",
+      "points": 1983
+    },
+    {
+      "id": "chaikin_volatility",
+      "points": 981
+    },
+    {
+      "id": "chaikin_oscillator",
+      "points": 991
+    },
+    {
+      "id": "volume_oscillator",
+      "points": 991
+    },
+    {
+      "id": "price_oscillator",
+      "points": 1946
+    },
+    {
+      "id": "historical_volatility",
+      "points": 980
+    },
+    {
+      "id": "zero_trend_volatility",
+      "points": 980
+    },
+    {
+      "id": "mass_index",
+      "points": 960
+    },
+    {
+      "id": "stddev",
+      "points": 981
+    },
+    {
+      "id": "stderr",
+      "points": 981
+    },
+    {
+      "id": "median_price",
+      "points": 1000
+    },
+    {
+      "id": "typical_price",
+      "points": 1000
+    },
+    {
+      "id": "average_price",
+      "points": 1000
+    },
+    {
+      "id": "pivots",
+      "points": 4870
+    },
+    {
+      "id": "klinger",
+      "points": 1880
+    },
+    {
+      "id": "volume_profile",
+      "profileBins": 32
+    },
+    {
+      "id": "visible_volume_profile",
+      "profileBins": 32
+    }
+  ],
+  "markets": [
+    {
+      "id": "oi",
+      "points": 500,
+      "error": null
+    },
+    {
+      "id": "funding",
+      "points": 125,
+      "error": null
+    },
+    {
+      "id": "basis",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "ratio",
+      "points": 500,
+      "error": null
+    },
+    {
+      "id": "oi_delta",
+      "points": 499,
+      "error": null
+    },
+    {
+      "id": "oi_candles",
+      "points": 42,
+      "error": null
+    },
+    {
+      "id": "funding_candles",
+      "points": 125,
+      "error": null
+    },
+    {
+      "id": "premium",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "index_price",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "oi_value",
+      "points": 500,
+      "error": null
+    },
+    {
+      "id": "top_accounts",
+      "points": 500,
+      "error": null
+    },
+    {
+      "id": "top_positions",
+      "points": 500,
+      "error": null
+    },
+    {
+      "id": "taker_volume",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "taker_delta",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "taker_value",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "taker_value_delta",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "cvd",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "volume_ratio",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "aggregate_volume",
+      "points": 1000,
+      "error": null
+    },
+    {
+      "id": "aggregate_oi",
+      "points": 200,
+      "error": null
+    },
+    {
+      "id": "liquidations",
+      "points": 0,
+      "error": "Ликвидации по символу · наблюдавшиеся, USDT: Нет наблюдавшихся событий за 24ч; полнота покрытия не гарантируется"
+    },
+    {
+      "id": "aggregate_liquidations",
+      "points": 0,
+      "error": "Совокупные ликвидации · наблюдавшиеся, USDT: Нет наблюдавшихся событий за 24ч; полнота покрытия не гарантируется"
+    },
+    {
+      "id": "fear_greed",
+      "points": 42,
+      "error": null
+    }
+  ],
+  "sources": [
+    "https://api.bybit.com/v5/market/instruments-info?category=linear&symbol=BTCUSDT",
+    "https://api.bybit.com/v5/market/tickers?category=linear",
+    "https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=60&limit=1000&category=linear",
+    "https://api.bybit.com/v5/market/kline?symbol=BTCUSDT&interval=60&limit=1000&end=1788213599999&category=linear",
+    "https://fapi.binance.com/fapi/v1/ticker/24hr",
+    "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=1000",
+    "https://fapi.binance.com/fapi/v1/exchangeInfo?symbol=BTCUSDT",
+    "https://fapi.binance.com/futures/data/openInterestHist?symbol=BTCUSDT&period=1h&limit=500",
+    "https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1000",
+    "https://fapi.binance.com/fapi/v1/markPriceKlines?symbol=BTCUSDT&interval=1h&limit=1000",
+    "https://fapi.binance.com/fapi/v1/indexPriceKlines?pair=BTCUSDT&interval=1h&limit=1000",
+    "https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=500",
+    "https://fapi.binance.com/futures/data/openInterestHist?symbol=BTCUSDT&period=5m&limit=500",
+    "https://fapi.binance.com/fapi/v1/premiumIndexKlines?symbol=BTCUSDT&interval=1h&limit=1000",
+    "https://fapi.binance.com/futures/data/topLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=500",
+    "https://fapi.binance.com/futures/data/topLongShortPositionRatio?symbol=BTCUSDT&period=1h&limit=500",
+    "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=1000",
+    "https://api.bybit.com/v5/market/kline?category=linear&symbol=BTCUSDT&interval=60&limit=1000",
+    "https://api.bybit.com/v5/market/open-interest?category=linear&symbol=BTCUSDT&intervalTime=1h&limit=200",
+    "http://192.168.0.130/api/market/liquidations/history?symbol=BTCUSDT&exchange=binance",
+    "http://192.168.0.130/api/market/liquidations/history?symbol=BTCUSDT&exchange=all",
+    "http://192.168.0.130/api/market/overview",
+    "https://fapi.binance.com/fapi/v1/klines?symbol=ETHUSDT&interval=1h&limit=1000",
+    "https://fapi.binance.com/fapi/v1/exchangeInfo?symbol=ETHUSDT"
+  ],
+  "errors": [],
+  "startup": {
+    "websocketSeen": true,
+    "visibleFrom": 820,
+    "candles": 1000
+  },
+  "workers": [
+    "http://192.168.0.130/assets/indicator.worker-CMIifdbs.js"
+  ]
+}

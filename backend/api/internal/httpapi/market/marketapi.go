@@ -126,6 +126,7 @@ func New(redisClient *redis.Client) *API {
 func (a *API) Routes(r chi.Router) {
 	r.Get("/market/overview", a.handleOverview)
 	r.Get("/market/derivatives", a.handleDerivatives)
+	r.Get("/market/liquidations/history", a.handleLiquidationHistory)
 }
 
 func (a *API) handleOverview(w http.ResponseWriter, r *http.Request) {

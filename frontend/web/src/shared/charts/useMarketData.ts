@@ -46,8 +46,11 @@ export function useMarketData(instrument: Instrument, interval: ChartInterval) {
     page.current = false;
     exhausted.current = false;
     let disposed = false,
+      primed = false,
+      historyError = "",
       stop = () => {},
       queued: Candle[] = [];
+    const bootstrap = new Map<number, Candle>();
     setState({
       key,
       candles: [],
@@ -59,13 +62,19 @@ export function useMarketData(instrument: Instrument, interval: ChartInterval) {
     });
     const put = (data: Candle[]) => {
       if (disposed) return;
+      if (!primed) {
+        for (const candle of data) bootstrap.set(candle.time, candle);
+        while (bootstrap.size > 1000)
+          bootstrap.delete(bootstrap.keys().next().value!);
+        return;
+      }
       setState((s) =>
         s.key === key
           ? {
               ...s,
               candles: normalizeCandles([...s.candles, ...data]).slice(-15000),
               updated: Date.now(),
-              error: "",
+              error: historyError,
               loading: false,
             }
           : s,
@@ -89,29 +98,34 @@ export function useMarketData(instrument: Instrument, interval: ChartInterval) {
         if (!disposed) setState((s) => (s.key === key ? { ...s, status } : s));
       },
     );
-    void Promise.allSettled([
-      fetchMarketCandles(instrument, interval, abort.signal),
-      fetchMarketPriceFormat(instrument, abort.signal),
-    ]).then(([data, format]) => {
-      if (disposed) return;
-      if (data.status === "fulfilled") put(data.value);
-      else
-        setState((s) =>
-          s.key === key
-            ? {
-                ...s,
-                loading: false,
-                error: data.reason?.message ?? "История недоступна",
-              }
-            : s,
-        );
-      if (format.status === "fulfilled")
-        setState((s) => (s.key === key ? { ...s, format: format.value } : s));
-    });
+    void fetchMarketCandles(instrument, interval, abort.signal)
+      .then((rows) => {
+        if (disposed) return;
+        primed = true;
+        put([...rows, ...bootstrap.values()]);
+        bootstrap.clear();
+      })
+      .catch((error) => {
+        if (disposed) return;
+        primed = true;
+        historyError = error?.message ?? "История недоступна";
+        put([...bootstrap.values()]);
+        bootstrap.clear();
+      });
+    void fetchMarketPriceFormat(instrument, abort.signal)
+      .then((format) => {
+        if (!disposed) setState((s) => (s.key === key ? { ...s, format } : s));
+      })
+      .catch(() => {
+        /* Actual candle precision remains the fallback. */
+      });
     const timer = setInterval(() => {
       if (document.visibilityState !== "visible") return;
       void fetchMarketCandles(instrument, interval, abort.signal)
-        .then(put)
+        .then((rows) => {
+          historyError = "";
+          put(rows);
+        })
         .catch(() => {
           if (!disposed) setState((s) => ({ ...s, status: "offline" }));
         });

@@ -51,3 +51,29 @@ func TestTerminalStyleValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestExpandedIndicatorCatalogueConfiguration(t *testing.T) {
+	config := defaultConfig()
+	config.ActiveIndicatorIDs = nil
+	for id := range allowedIndicators {
+		config.ActiveIndicatorIDs = append(config.ActiveIndicatorIDs, id)
+	}
+	normalized, err := normalizeConfig(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(normalized.ActiveIndicatorIDs) != len(allowedIndicators) {
+		t.Fatal("indicator catalogue was truncated")
+	}
+	raw, err := json.Marshal(normalized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored ChartConfig
+	if err = json.Unmarshal(raw, &restored); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = normalizeConfig(restored); err != nil {
+		t.Fatal(err)
+	}
+}

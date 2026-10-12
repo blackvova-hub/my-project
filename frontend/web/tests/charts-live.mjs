@@ -106,7 +106,7 @@ try {
     "aria-checked",
     "false",
   );
-  for (const name of [/^EMA/, /^RSI/, /^Объём/])
+  for (const name of [/^EMA/, /^RSI Индекс/, /^Объём/])
     await page.getByRole("switch", { name }).click();
   await page.keyboard.press("Escape");
   await page

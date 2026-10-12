@@ -1,5 +1,10 @@
 import type { HistogramData, LineData, UTCTimestamp } from "lightweight-charts";
 import type { PerpCandle } from "./perpMarketData";
+import { calculateExtended } from "./indicatorExtended";
+import {
+  EXTRA_INDICATORS,
+  type ExtraIndicatorId,
+} from "./indicatorCatalogExtra";
 import type {
   ClassicIndicatorId,
   IndicatorId,
@@ -13,6 +18,8 @@ export type IndicatorLineOutput = {
   color: string;
   lineWidth?: 1 | 2 | 3 | 4;
   lineStyle?: 0 | 1 | 2 | 3 | 4;
+  lineVisible?: boolean;
+  pointMarkersVisible?: boolean;
   data: LineData<UTCTimestamp>[];
 };
 
@@ -195,7 +202,15 @@ export async function calculateIndicator(
   candles: PerpCandle[],
   id: ClassicIndicatorId,
   selectedPeriod?: number,
+  barSeconds?: number,
 ): Promise<IndicatorOutput> {
+  if (EXTRA_INDICATORS.some((item) => item.id === id))
+    return calculateExtended(
+      candles,
+      id as ExtraIndicatorId,
+      selectedPeriod,
+      barSeconds,
+    );
   if (id === "vwap") {
     return {
       id,
@@ -574,6 +589,8 @@ export async function calculateIndicator(
           ),
         ],
       };
+    default:
+      throw new Error(`Unknown indicator: ${id}`);
   }
 }
 
@@ -586,7 +603,9 @@ export async function calculateIndicatorTail(
   const sourceCandles =
     id === "vwap"
       ? currentUtcSessionCandles(candles)
-      : candles.slice(-LIVE_LOOKBACK);
+      : ["obv", "adl", "pvt", "chaikin_oscillator", "klinger"].includes(id)
+        ? candles
+        : candles.slice(-LIVE_LOOKBACK);
   const output = await calculateIndicator(sourceCandles, id);
   return {
     ...output,

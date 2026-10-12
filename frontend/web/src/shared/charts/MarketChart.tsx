@@ -1,4 +1,9 @@
-import { useDerivativePanels, type DerivativeId } from "./derivatives";
+import {
+  useDerivativePanels,
+  DERIVATIVE_PANELS,
+  derivativeAvailability,
+  type DerivativeId,
+} from "./derivatives";
 import { useCallback, useState } from "react";
 import { RefreshCw, Maximize2, Save } from "lucide-react";
 import { ChartSurface, type ChartSurfaceProps } from "./ChartSurface";
@@ -32,6 +37,9 @@ export function MarketChart({
 } & Omit<ChartSurfaceProps, "candles" | "interval">) {
   const [interval, setInterval] = useState<ChartInterval | null>(null),
     [indicatorSelection, setIndicators] = useState<IndicatorId[] | null>(null),
+    [externalSelection, setExternalSelection] = useState<DerivativeId[] | null>(
+      null,
+    ),
     [reset, setReset] = useState(0);
   const instrument = { exchange, symbol, market };
   const saved = useChartWorkspace(`${instrumentKey(instrument)}:${initial}`);
@@ -43,7 +51,10 @@ export function MarketChart({
     saved.config?.active_indicator_ids ??
     EMPTY_INDICATORS;
   const data = useMarketData(instrument, selected);
-  const external = useDerivativePanels(instrument, selected, derivatives);
+  const externalIds = embedded
+    ? (externalSelection ?? derivatives)
+    : derivatives;
+  const external = useDerivativePanels(instrument, selected, externalIds);
   const workspace = useChartWorkspace(
     `${instrumentKey(instrument)}:${selected}`,
   );
@@ -78,7 +89,23 @@ export function MarketChart({
                   : [...(ids ?? indicators), id],
               )
             }
-            onClear={() => setIndicators([])}
+            onClear={() => {
+              setIndicators([]);
+              setExternalSelection([]);
+            }}
+            external={DERIVATIVE_PANELS.map((item) => ({
+              ...item,
+              unavailable: derivativeAvailability(instrument, item.id),
+            }))}
+            activeExternal={externalIds}
+            onExternalToggle={(value) => {
+              const id = value as DerivativeId;
+              setExternalSelection((ids) =>
+                (ids ?? externalIds).includes(id)
+                  ? (ids ?? externalIds).filter((v) => v !== id)
+                  : [...(ids ?? externalIds), id],
+              );
+            }}
           />
           <button
             aria-label="Сбросить масштаб"

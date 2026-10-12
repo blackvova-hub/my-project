@@ -40,7 +40,9 @@ const base = (instrument: Instrument) =>
 export const instrumentKey = (i: Instrument) =>
   `${i.exchange}:${i.market}:${i.symbol}`;
 async function json(url: string, signal: AbortSignal): Promise<unknown> {
-  const response = await fetch(url, { signal });
+  const response = await fetch(url, {
+    signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
+  });
   if (!response.ok) throw new Error(`Источник ответил HTTP ${response.status}`);
   const raw = await response.json();
   if (raw?.retCode !== undefined && raw.retCode !== 0)

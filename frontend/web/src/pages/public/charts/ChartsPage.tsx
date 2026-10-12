@@ -1,6 +1,7 @@
 import { useDialogFocus } from "../../../shared/charts/useDialogFocus";
 import {
   DERIVATIVE_PANELS,
+  derivativeAvailability,
   type DerivativeId,
 } from "../../../shared/charts/derivatives";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -23,6 +24,10 @@ import {
 import { MarketChart } from "../../../shared/charts/MarketChart";
 import { TimeSeriesChart } from "../../../shared/charts/LineChart";
 import {
+  comparePrices,
+  type ComparisonMode,
+} from "../../../shared/charts/comparison";
+import {
   CHART_INTERVALS,
   fetchMarketTickers,
   type ChartInterval,
@@ -37,6 +42,7 @@ import {
   INDICATOR_CATALOG,
   type IndicatorId,
   isClassicIndicatorId,
+  defaultIndicatorPeriod,
 } from "../../../shared/market/indicatorTypes";
 import type {
   ChartMode,
@@ -445,16 +451,30 @@ export default function ChartsPage() {
                     : [...workspace.indicators, id],
                 })
               }
-              onClear={() => patch({ indicators: [], instances: [] })}
+              onClear={() =>
+                patch({ indicators: [], instances: [], derivatives: [] })
+              }
+              external={DERIVATIVE_PANELS.map((item) => ({
+                ...item,
+                unavailable: derivativeAvailability(workspace, item.id),
+              }))}
+              activeExternal={workspace.derivatives}
+              onCompare={() => {
+                setDialog("compare");
+                setSearch("");
+              }}
+              onExternalToggle={(value) => {
+                const id = value as DerivativeId;
+                patch({
+                  derivatives: workspace.derivatives.includes(id)
+                    ? workspace.derivatives.filter((v) => v !== id)
+                    : [...workspace.derivatives, id],
+                });
+              }}
               volumeActive={workspace.volume}
               onVolumeToggle={() => patch({ volume: !workspace.volume })}
             />
-            <button
-              disabled={workspace.market !== "linear"}
-              onClick={() => setDialog("derivatives")}
-            >
-              Деривативы
-            </button>
+            <button onClick={() => setDialog("derivatives")}>Деривативы</button>
             <button
               onClick={() => {
                 setDialog("compare");
@@ -687,13 +707,18 @@ export default function ChartsPage() {
             )}
             {dialog === "derivatives" && (
               <>
-                <h3>Деривативные панели</h3>
+                <h3>Рыночные данные и деривативы</h3>
                 {DERIVATIVE_PANELS.map((p) => (
                   <label key={p.id}>
                     <span>
                       <input
                         type="checkbox"
+                        aria-label={p.label}
                         checked={workspace.derivatives.includes(p.id)}
+                        disabled={
+                          !!derivativeAvailability(workspace, p.id) &&
+                          !workspace.derivatives.includes(p.id)
+                        }
                         onChange={(e) =>
                           patch({
                             derivatives: e.target.checked
@@ -705,6 +730,10 @@ export default function ChartsPage() {
                         }
                       />{" "}
                       {p.label}
+                      <small className="block text-muted-foreground">
+                        {derivativeAvailability(workspace, p.id) ||
+                          p.description}
+                      </small>
                     </span>
                   </label>
                 ))}
@@ -713,9 +742,22 @@ export default function ChartsPage() {
                   500; funding до 200 / 1000. Обновление раз в минуту. Для 1м OI
                   и L/S доступны с шагом 5м. На крупных таймфреймах отображается
                   последнее наблюдение в интервале. Ставки funding не
-                  суммируются. OI — базовый актив, L/S — аккаунты, не объём
-                  позиций.
+                  суммируются. OI — базовый актив. L/S аккаунтов не является
+                  объёмом позиций; для позиций топ-трейдеров используется
+                  отдельный источник Binance. Taker/CVD доступны в Binance;
+                  агрегаты охватывают только перечисленные биржи.
                 </p>
+                <details className="ct-source-note">
+                  <summary>Какие данные требуют другого источника</summary>
+                  <p>
+                    Исторические bid/ask и CVD-свечи требуют архива стакана и
+                    исполнений. Закрытые CoinGlass Whale/Net Longs/Net Shorts,
+                    данные CME и Grayscale, стоимость заимствования и полные
+                    агрегаты всех бирж в проекте не подключены. Профиль объёма
+                    по OHLCV является оценкой. Реальные ордера здесь не
+                    отправляются.
+                  </p>
+                </details>
               </>
             )}
             {dialog === "settings" && (
@@ -745,12 +787,7 @@ export default function ChartsPage() {
                   Логарифмическая шкала
                 </label>
                 {workspace.indicators
-                  .filter(
-                    (id) =>
-                      !["macd", "ichimoku", "vwap"].includes(id) &&
-                      INDICATOR_CATALOG.find((i) => i.id === id)?.group !==
-                        "smart-money",
-                  )
+                  .filter((id) => defaultIndicatorPeriod(id) !== undefined)
                   .map((id) => (
                     <label key={id}>
                       {INDICATOR_CATALOG.find((i) => i.id === id)?.label} ·
@@ -760,14 +797,7 @@ export default function ChartsPage() {
                         min={2}
                         max={400}
                         value={
-                          workspace.periods[id] ??
-                          (["ema", "sma", "bollinger", "cci"].includes(id)
-                            ? 20
-                            : id === "roc"
-                              ? 12
-                              : id === "supertrend"
-                                ? 10
-                                : 14)
+                          workspace.periods[id] ?? defaultIndicatorPeriod(id)
                         }
                         onChange={(e) => {
                           const n = Number(e.target.value);
@@ -784,13 +814,15 @@ export default function ChartsPage() {
                   <div className="ct-form-row" key={instance.key}>
                     <label>
                       {instance.id.toUpperCase()}
-                      {["macd", "ichimoku", "vwap"].includes(instance.id) ? (
+                      {defaultIndicatorPeriod(instance.id) === undefined ? (
                         <span>
                           {instance.id === "macd"
                             ? "12 / 26 / 9"
                             : instance.id === "ichimoku"
                               ? "9 / 26 / 52"
-                              : "Сессия UTC"}
+                              : instance.id === "vwap"
+                                ? "Сессия UTC"
+                                : "Фиксированная формула"}
                         </span>
                       ) : (
                         <input
@@ -854,15 +886,7 @@ export default function ChartsPage() {
                           {
                             key: `${id}-${Date.now()}`,
                             id,
-                            period: ["macd", "ichimoku", "vwap"].includes(id)
-                              ? undefined
-                              : ["sma", "ema", "bollinger", "cci"].includes(id)
-                                ? 20
-                                : id === "roc"
-                                  ? 12
-                                  : id === "supertrend"
-                                    ? 10
-                                    : 14,
+                            period: defaultIndicatorPeriod(id),
                             color: "#fbbf24",
                           },
                         ],
@@ -1075,36 +1099,44 @@ function Comparison({
   interval: ChartInterval;
   onClose: () => void;
 }) {
+  const [mode, setMode] = useState<ComparisonMode>("returns");
   const a = useMarketData(primary, interval),
     b = useMarketData({ ...primary, symbol }, interval);
   const lines = useMemo(() => {
-    const common = new Set(b.candles.map((c) => c.time)),
-      start = a.candles.find((c) => common.has(c.time))?.time,
-      firstA = a.candles.find((c) => c.time === start)?.close,
-      firstB = b.candles.find((c) => c.time === start)?.close;
-    if (!start || !firstA || !firstB) return [];
-    return [
-      {
-        name: primary.symbol,
-        color: "var(--primary)",
-        data: a.candles
-          .filter((c) => c.time >= start)
-          .map((c) => ({ time: c.time, value: (c.close / firstA - 1) * 100 })),
-      },
-      {
-        name: symbol,
-        color: "var(--chart-3)",
-        data: b.candles
-          .filter((c) => c.time >= start)
-          .map((c) => ({ time: c.time, value: (c.close / firstB - 1) * 100 })),
-      },
-    ];
-  }, [a.candles, b.candles, primary.symbol, symbol]);
+    return comparePrices(
+      a.candles,
+      primary.symbol === symbol ? a.candles : b.candles,
+      mode,
+    ).map((data, index) => ({
+      name:
+        mode === "returns"
+          ? index === 0
+            ? primary.symbol
+            : symbol
+          : `${primary.symbol} ${mode === "ratio" ? "/" : "−"} ${symbol}`,
+      color: index === 0 ? "var(--primary)" : "var(--chart-3)",
+      data,
+    }));
+  }, [a.candles, b.candles, primary.symbol, symbol, mode]);
   return (
-    <section className="ct-comparison">
+    <section
+      className="ct-comparison"
+      data-comparison-mode={mode}
+      data-comparison-value={lines[0]?.data.at(-1)?.value}
+    >
       <header>
-        Сравнение доходности · общая начальная свеча · {primary.symbol} /{" "}
-        {symbol}
+        <span>
+          {primary.symbol} / {symbol} · общие временные метки
+        </span>
+        <select
+          aria-label="Режим сравнения"
+          value={mode}
+          onChange={(e) => setMode(e.target.value as ComparisonMode)}
+        >
+          <option value="returns">Доходность, %</option>
+          <option value="ratio">Ratio · отношение цен</option>
+          <option value="spread">Spread · разница, USDT</option>
+        </select>
         <button aria-label="Закрыть сравнение" onClick={onClose}>
           <X size={15} />
         </button>
@@ -1114,7 +1146,7 @@ function Comparison({
           lines={lines}
           height={210}
           label="Сравнение рыночных цен"
-          percent
+          percent={mode === "returns"}
         />
       ) : (
         <p className="ct-source-note">

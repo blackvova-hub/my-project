@@ -7,6 +7,45 @@
   isolation: isolate;
   outline-offset: 2px;
 }
+.ct-comparison header {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ct-comparison select {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 4px 6px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 11px;
+}
+.ct-external-notes {
+  position: absolute;
+  right: 74px;
+  bottom: 32px;
+  z-index: 7;
+  max-width: min(300px, 70%);
+  font-size: 10px;
+  color: var(--muted-foreground);
+}
+.ct-external-notes summary {
+  cursor: pointer;
+  background: var(--card);
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+}
+.ct-external-notes > div {
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  background: var(--popover);
+  border: 1px solid var(--border);
+}
+.ct-external-notes p {
+  margin-bottom: 8px;
+}
 .ct-chart-host {
   position: absolute;
   inset: 0;
