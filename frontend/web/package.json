@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:charts": "node --experimental-strip-types --test tests/charts.test.mjs",
+    "test:charts:live": "node tests/charts-live.mjs",
     "test:arbitrage": "node --experimental-strip-types --test tests/arbitrage.test.mjs",
     "test:arbitrage:live": "node tests/arbitrage-live.mjs",
     "dev": "vite",

@@ -1,7 +1,11 @@
 # Server01 deployment
 
-Deployed 2026-09-21 to `server@192.168.0.124`, Ubuntu 26.04.1.
-Application: <http://192.168.0.124> (LAN only, HTTP).
+Deployed 2026-09-21 to server01, Ubuntu 26.04.1.
+Current SSH: `server@192.168.0.130`; application: <http://192.168.0.130> (LAN only, HTTP).
+The LAN address changed from `192.168.0.124` after reboot on 2026-10-12.
+`SERVER_LAN_IP` in `backend/.env` controls frontend binding and backend URLs.
+If DHCP changes this address again, update that value and recreate `backend` and
+`frontend`; reserve the server's LAN address in the router to keep the link stable.
 Administrator: `admin@local.dev`; password is in root-readable
 `/opt/shortlong/admin-access.json`. Email/password login, email verified,
 admin role and Pro subscription; no CAPTCHA or second factor on this LAN setup.
@@ -15,7 +19,7 @@ Do not expose this configuration publicly without TLS and stronger credentials.
 - `/srv/fast` (Apacer SSD) is not used or mounted by any project container.
 - Docker starts at boot; services use restart policies. Docker's systemd drop-in
   requires the archive mount before starting containers.
-- Database/service ports are internal; frontend listens on `192.168.0.124:80`.
+- Database/service ports are internal; frontend listens on `${SERVER_LAN_IP}:80`.
 - Passwords are generated independently in `backend/.env` (mode 0600).
 
 ## Archive scope and operation

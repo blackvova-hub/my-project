@@ -1,3 +1,4 @@
+import { TimeSeriesChart } from "../../../shared/charts/LineChart";
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { X, ExternalLink } from "lucide-react";
@@ -114,56 +115,9 @@ function HistoryGraph({ history }: { history: History }) {
         сервером связок.
       </p>
     );
-  const lo = Math.min(...points.map((p) => p.spread)),
-    hi = Math.max(...points.map((p) => p.spread));
-  const start = points[0].at,
-    end = points[points.length - 1].at;
-  const coords = points.map((p) => ({
-    at: p.at,
-    xy: `${48 + ((p.at - start) / Math.max(end - start, 1)) * 692},${20 + ((hi - p.spread) / Math.max(hi - lo, 0.02)) * 135}`,
-  }));
-  const groups: string[][] = [[]];
-  coords.forEach((p, i) => {
-    if (i && p.at - coords[i - 1].at > 90000) groups.push([]);
-    groups[groups.length - 1].push(p.xy);
-  });
   return (
     <>
-      <svg
-        role="img"
-        aria-label={`История спреда: от ${fmt(lo)} до ${fmt(hi)} процентов, ${points.length} наблюдений`}
-        viewBox="0 0 760 190"
-        className="mt-3 w-full text-primary"
-      >
-        <line x1="48" y1="160" x2="740" y2="160" stroke="var(--border)" />
-        <text x="0" y="25" fill="var(--muted-foreground)" fontSize="12">
-          {fmt(hi)}%
-        </text>
-        <text x="0" y="155" fill="var(--muted-foreground)" fontSize="12">
-          {fmt(lo)}%
-        </text>
-        {groups.map((g, i) => (
-          <polyline
-            key={i}
-            points={g.join(" ")}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          />
-        ))}
-        <text x="48" y="182" fill="var(--muted-foreground)" fontSize="12">
-          {new Date(start).toLocaleTimeString("ru-RU")}
-        </text>
-        <text
-          x="740"
-          y="182"
-          textAnchor="end"
-          fill="var(--muted-foreground)"
-          fontSize="12"
-        >
-          {new Date(end).toLocaleTimeString("ru-RU")}
-        </text>
-      </svg>
+      <TimeSeriesChart lines={[{name:"Спред",color:"var(--primary)",gapSeconds:90,data:points.map(p=>({time:p.at/1000,value:p.spread}))}]} height={190} label="История арбитражного спреда" percent/>
       <details className="mt-2 text-xs text-muted-foreground">
         <summary className="cursor-pointer">
           Данные графика ({points.length})

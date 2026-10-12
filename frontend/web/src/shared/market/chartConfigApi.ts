@@ -21,7 +21,7 @@ type ChartConfigResponse = {
   updated_at?: string;
 };
 
-const INTERVALS = new Set<PerpInterval>(['1m', '5m', '15m', '1h', '4h']);
+const INTERVALS = new Set<PerpInterval>(['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w']);
 
 function normalizeConfig(response: ChartConfigResponse): ChartConfig {
   const selectedInterval = INTERVALS.has(response.config.selected_interval as PerpInterval)

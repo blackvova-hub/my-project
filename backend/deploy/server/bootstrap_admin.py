@@ -15,5 +15,5 @@ VALUES ('%s',crypt('%s',gen_salt('bf',10)),100001,'Server Admin','pro',now()+int
 subprocess.run(['docker','exec','-i','crypto_postgres','psql','-U','postgres','-d','alerts','-v','ON_ERROR_STOP=1'], input=sql, text=True, check=True, stdout=subprocess.DEVNULL)
 os.umask(0o077)
 with access.open('x') as f:
-    json.dump({'url':'http://192.168.0.124','email':email,'password':password},f)
+    json.dump({'url':'http://' + os.environ.get('SERVER_LAN_IP', '192.168.0.130'),'email':email,'password':password},f)
 print('LAN administrator created; credentials saved in /opt/shortlong/admin-access.json (0600).')

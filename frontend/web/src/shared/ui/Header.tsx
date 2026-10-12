@@ -235,6 +235,12 @@ export default function Header({
               </NavLink>
             )}
             <NavLink
+              to="/charts"
+              className={({ isActive }) => linkClass(isActive)}
+            >
+              Графики
+            </NavLink>
+            <NavLink
               to="/arbitrage"
               className={({ isActive }) => linkClass(isActive)}
             >
@@ -327,6 +333,12 @@ export default function Header({
                 Сканеры
               </Link>
               <Link
+                className={mobileMenuLinkClass}
+                to="/charts"
+              >
+                Графики
+              </Link>
+            <Link
                 className={mobileMenuLinkClass}
                 to="/arbitrage"
               >

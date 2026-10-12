@@ -1,3 +1,4 @@
+import { HeatmapChart, StackedBar } from "../../shared/charts/StatCharts";
 import { useState } from "react";
 import type { Dimension, Insight, Trade, TradeFilter } from "./types";
 import type { Portfolio } from "./model";
@@ -95,41 +96,29 @@ export function Edge({
           title="День и время"
           action={<span className="an-muted"> Чистый результат · UTC </span>}
         >
-          <div className="an-heatmap">
-            <span />
-            {weekdays.map((d) => (
-              <span key={d}>{d}</span>
-            ))}
-            {hours.flatMap((hour) => [
-              <span className="an-hour" key={hour}>
-                {hour}
-              </span>,
-              ...weekdays.map((day) => {
+          <HeatmapChart
+            columns={weekdays}
+            rows={hours}
+            cells={hours.flatMap((hour) =>
+              weekdays.map((day) => {
                 const trades = closed.filter(
                     (t) =>
                       dimension(t, "hour") === hour &&
                       dimension(t, "weekday") === day,
                   ),
                   s = stats(trades);
-                return (
-                  <button
-                    key={day + hour}
-                    disabled={!trades.length}
-                    aria-label={`${day} ${hour} UTC, сделок: ${trades.length}`}
-                    title={`Сделок: ${trades.length} · ${money(s.net, true)} · Фактор прибыли: ${number(s.pf)}`}
-                    style={{
-                      background: trades.length
-                        ? `color-mix(in srgb, ${s.net >= 0 ? "#34d399" : "#fb7185"} ${Math.min(50, 12 + Math.abs(s.net) / 100)}%, #18231c)`
-                        : undefined,
-                    }}
-                    onClick={() => onTrades({ weekday: day, hour })}
-                  >
-                    {trades.length ? money(s.net, true, 0) : "—"}
-                  </button>
-                );
+                return {
+                  row: hour,
+                  column: day,
+                  value: trades.length ? s.net : null,
+                  label: trades.length ? money(s.net, true, 0) : "—",
+                  title: `Сделок: ${trades.length} · ${money(s.net, true)} · Фактор прибыли: ${number(s.pf)}`,
+                  ariaLabel: `${day} ${hour} UTC, сделок: ${trades.length}`,
+                };
               }),
-            ])}
-          </div>
+            )}
+            onSelect={(hour, weekday) => onTrades({ weekday, hour })}
+          />
           <p className="an-footnote">
             {" "}
             Время открытия · нажмите на ячейку, чтобы увидеть сделки{" "}
@@ -386,15 +375,17 @@ export function Costs({
               </tr>
             </tbody>
           </table>
-          <div className="an-allocation-bar">
-            <span
-              style={{
-                width: `${volume ? (makerVolume / volume) * 100 : 0}%`,
-                background: "#34d399",
-              }}
-            />
-            <span style={{ flex: 1, background: "#72817a" }} />
-          </div>
+          <StackedBar
+            segments={[
+              { value: makerVolume, color: "var(--primary)" },
+              {
+                value: Math.max(0, volume - makerVolume),
+                color: "var(--muted-foreground)",
+              },
+            ]}
+            total={volume}
+            label="Доля maker и taker"
+          />
           <p className="an-muted">
             {" "}
             Доля исполнений тейкером ·{" "}
@@ -528,20 +519,15 @@ export function Risk({ p }: { p: Portfolio }) {
         {[...map].map(([symbol, row]) => (
           <div className="an-exposure-row" key={symbol}>
             <strong>{symbol}</strong>
-            <div className="an-exposure-bars">
-              <div
-                style={{
-                  width: `${gross ? (row.long / gross) * 100 : 0}%`,
-                  background: "#34d399",
-                }}
-              />
-              <div
-                style={{
-                  width: `${gross ? (row.short / gross) * 100 : 0}%`,
-                  background: "#fb7185",
-                }}
-              />
-            </div>
+            <StackedBar
+              className="an-exposure-bars"
+              segments={[
+                { value: row.long, color: "var(--primary)" },
+                { value: row.short, color: "var(--destructive)" },
+              ]}
+              total={gross}
+              label={`Объём позиций ${symbol}`}
+            />
             <span className="an-positive">{money(row.long, false, 0)}</span>
             <span className="an-negative">{money(row.short, false, 0)}</span>
             <Value value={row.long - row.short} />

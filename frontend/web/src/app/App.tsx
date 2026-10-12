@@ -29,6 +29,7 @@ const ScannersPageThree = lazy(
   () => import("../pages/public/scanners/ScannersPageThree"),
 );
 const NewsPage = lazy(() => import("../pages/public/news/NewsPage"));
+const ChartsPage = lazy(() => import("../pages/public/charts/ChartsPage"));
 const ArbitragePage = lazy(() => import("../pages/public/arbitrage/ArbitragePage"));
 const BacktestPage = lazy(
   () => import("../pages/public/backtest/BacktestPage"),
@@ -205,6 +206,7 @@ export default function App() {
             }
           />
           <Route element={<PublicLayout />}>
+            <Route path="/charts" element={<RequireAuth><ChartsPage /></RequireAuth>} />
             <Route path="/arbitrage" element={<RequireAuth><ArbitragePage /></RequireAuth>} />
             <Route
               path="/replay"

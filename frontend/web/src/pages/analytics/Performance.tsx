@@ -1,3 +1,4 @@
+import { MetricBar } from "../../shared/charts/StatCharts";
 import { useState } from "react";
 import type { Dimension, Range, Trade, TradeFilter } from "./types";
 import type { Portfolio } from "./model";
@@ -37,14 +38,10 @@ export function Breakdown({
             onClick={() => onTrades({ ids: g.trades.map((t) => t.id) })}
           >
             <span>{displayLabel(g.label)}</span>
-            <span className="an-mini-bar">
-              <i
-                style={{
-                  width: `${Math.max(2, (Math.abs(g.net) / Math.max(...groups.map((x) => Math.abs(x.net)), 1)) * 100)}%`,
-                  background: g.net >= 0 ? "#34d399" : "#fb7185",
-                }}
-              />
-            </span>
+            <MetricBar
+              value={g.net}
+              max={Math.max(...groups.map((x) => Math.abs(x.net)), 1)}
+            />
             <Value value={g.net} />
           </button>
         ))}

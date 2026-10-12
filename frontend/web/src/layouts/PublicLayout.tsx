@@ -68,8 +68,8 @@ export function PublicLayout() {
   const { isAuth, user } = useAuth();
   const location = useLocation();
   const isAccountPage = location.pathname.startsWith("/account");
-  const isReplayPage = location.pathname.startsWith("/replay");
-  const isBacktestPage = location.pathname.startsWith("/backtest") || location.pathname.startsWith("/replay");
+  const isReplayPage = location.pathname.startsWith("/replay") || location.pathname.startsWith("/charts");
+  const isBacktestPage = location.pathname.startsWith("/backtest") || location.pathname.startsWith("/replay") || location.pathname.startsWith("/charts");
   const [showMobileNotice, setShowMobileNotice] = useState(false);
   const userConsentKey = getCookieConsentKey(user?.num_id ?? null);
   const persistedCookieConsent = useMemo(

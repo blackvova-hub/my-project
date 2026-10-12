@@ -1,3 +1,4 @@
+import { StackedBar } from "../../shared/charts/StatCharts";
 import { useState } from "react";
 import type { Dataset, Insight, Range, TradeFilter } from "./types";
 import type { Portfolio } from "./model";
@@ -31,18 +32,15 @@ export function Allocation({
     );
   return (
     <>
-      <div className="an-allocation-bar">
-        {positive.map((a, i) => (
-          <span
-            key={a.symbol}
-            title={`${a.symbol}: ${money(a.value)}`}
-            style={{
-              width: `${(a.value / total) * 100}%`,
-              background: assetColors[i % assetColors.length],
-            }}
-          />
-        ))}
-      </div>
+      <StackedBar
+        segments={positive.map((a, i) => ({
+          value: a.value,
+          color: assetColors[i % assetColors.length],
+          title: `${a.symbol}: ${money(a.value)}`,
+        }))}
+        total={total}
+        label="Состав портфеля"
+      />
       <div className="an-allocation-list">
         {positive.map((a, i) => (
           <div key={a.symbol}>

@@ -22,8 +22,8 @@ services:
   backend:
     environment:
       APP_ENV: local
-      CORS_ORIGIN: "http://192.168.0.124"
-      FRONTEND_URL: "http://192.168.0.124"
+      CORS_ORIGIN: "http://${SERVER_LAN_IP:-192.168.0.130}"
+      FRONTEND_URL: "http://${SERVER_LAN_IP:-192.168.0.130}"
       COOKIE_SECURE: "false"
       HSTS_MAX_AGE: "0"
       TURNSTILE_ENABLED: "false"
@@ -31,7 +31,7 @@ services:
       TELEGRAM_POLLING_ENABLED: "false"
   frontend:
     ports: !override
-      - "192.168.0.124:80:80"
+      - "${SERVER_LAN_IP:-192.168.0.130}:80:80"
   clickhouse:
     cpus: "3.0"
     mem_limit: 6g
