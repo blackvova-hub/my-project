@@ -32,7 +32,11 @@ import {
   ChevronRight,
   Eraser,
 } from "lucide-react";
-import type { IChartApi, ISeriesApi } from "lightweight-charts";
+import {
+  PriceScaleMode,
+  type IChartApi,
+  type ISeriesApi,
+} from "lightweight-charts";
 import { timestamp, type Candle } from "../engine";
 import { drawingGeometry, type XY } from "./geometry";
 import {
@@ -64,6 +68,12 @@ type Props = {
   onSave?: () => void;
   cloudStatus?: string;
   onProject?: (time: number, price: number) => XY | null;
+  onScaleChange?: (change: {
+    autoScale?: boolean;
+    log?: boolean;
+    percent?: boolean;
+    follow?: boolean;
+  }) => void;
 };
 const groups: { id: ToolGroup; label: string; Icon: typeof TrendingUp }[] = [
   { id: "lines", label: "Линии и каналы", Icon: TrendingUp },
@@ -87,6 +97,7 @@ function DrawingEditorView({
   disabled,
   onSave,
   cloudStatus,
+  onScaleChange,
 }: Props) {
   const [tool, setTool] = useState("cursor"),
     [group, setGroup] = useState<ToolGroup | null>(null),
@@ -102,6 +113,7 @@ function DrawingEditorView({
     [editorMessage, setEditorMessage] = useState(""),
     [size, setSize] = useState({ width: 0, height: 0 });
   const [previewItems, setPreviewItems] = useState<Drawing[] | null>(null);
+  const [groupPosition, setGroupPosition] = useState({ left: 44, top: 80 });
   const [, invalidate] = useState(0),
     overlay = useRef<SVGSVGElement>(null),
     file = useRef<HTMLInputElement>(null),
@@ -567,13 +579,34 @@ function DrawingEditorView({
               aria-expanded={group === id}
               aria-pressed={def?.group === id}
               disabled={disabled}
-              onClick={() => setGroup(group === id ? null : id)}
+              onClick={(event) => {
+                const bounds = event.currentTarget.getBoundingClientRect();
+                setGroupPosition({
+                  left: Math.min(
+                    window.innerWidth - 300,
+                    Math.max(4, bounds.right + 4),
+                  ),
+                  top: Math.max(
+                    4,
+                    Math.min(bounds.top, window.innerHeight - 320),
+                  ),
+                });
+                setGroup(group === id ? null : id);
+              }}
             >
               <Icon size={18} />
               <ChevronRight size={9} className="ct-tool-chevron" />
             </button>
             {group === id && (
-              <div className="ct-tool-menu" role="menu">
+              <div
+                className="ct-tool-menu"
+                role="menu"
+                style={{
+                  position: "fixed",
+                  left: groupPosition.left,
+                  top: groupPosition.top,
+                }}
+              >
                 <header>
                   {label}
                   <button
@@ -680,6 +713,12 @@ function DrawingEditorView({
         onPointerMove={move}
         onPointerUp={up}
         onPointerCancel={(e) => {
+          api.chart.applyOptions({
+            handleScroll: {
+              pressedMouseMove: tool === "cursor",
+              horzTouchDrag: tool === "cursor",
+            },
+          });
           drag.current = null;
           preview.current = null;
           brush.current = [];
@@ -994,8 +1033,8 @@ function DrawingEditorView({
         <div
           className="ct-context"
           style={{
-            left: Math.min(context.x, size.width - 180),
-            top: Math.min(context.y, size.height - 150),
+            left: Math.max(4, Math.min(context.x, size.width - 180)),
+            top: Math.max(4, Math.min(context.y, size.height - 180)),
           }}
         >
           <button
@@ -1018,6 +1057,54 @@ function DrawingEditorView({
             }}
           >
             Сбросить масштаб
+          </button>
+          <button
+            onClick={() => {
+              api.chart.timeScale().scrollToRealTime();
+              onScaleChange?.({ follow: true });
+              setContext(null);
+            }}
+          >
+            К последней свече
+          </button>
+          <button
+            onClick={() => {
+              api.chart.priceScale("right").applyOptions({ autoScale: true });
+              onScaleChange?.({ autoScale: true });
+              setContext(null);
+            }}
+          >
+            Автоматический масштаб цены
+          </button>
+          <button
+            onClick={() => {
+              const log =
+                api.chart.priceScale("right").options().mode !==
+                PriceScaleMode.Logarithmic;
+              api.chart.priceScale("right").applyOptions({
+                mode: log ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
+              });
+              onScaleChange?.({ log, percent: false });
+              setContext(null);
+            }}
+          >
+            Логарифмическая шкала
+          </button>
+          <button
+            onClick={() => {
+              const percent =
+                api.chart.priceScale("right").options().mode !==
+                PriceScaleMode.Percentage;
+              api.chart.priceScale("right").applyOptions({
+                mode: percent
+                  ? PriceScaleMode.Percentage
+                  : PriceScaleMode.Normal,
+              });
+              onScaleChange?.({ percent, log: false });
+              setContext(null);
+            }}
+          >
+            Процентная шкала
           </button>
           <button onClick={() => setContext(null)}>Закрыть</button>
         </div>

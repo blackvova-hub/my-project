@@ -178,6 +178,7 @@ var allowedDrawingPointCounts = map[string]int{
 type API struct {
 	authStore *auth.Store
 	db        *pgxpool.Pool
+	orderflow OrderflowProvider
 }
 
 type ctxKey string
@@ -189,6 +190,7 @@ type ChartConfig struct {
 	SelectedInterval   string                    `json:"selected_interval"`
 	ActiveIndicatorIDs []string                  `json:"active_indicator_ids"`
 	DrawingSets        map[string][]ChartDrawing `json:"drawing_sets"`
+	Terminal           json.RawMessage           `json:"terminal,omitempty"`
 }
 
 type DrawingPoint struct {
@@ -277,7 +279,7 @@ type chartConfigResponse struct {
 }
 
 func New(authStore *auth.Store, db *pgxpool.Pool) *API {
-	return &API{authStore: authStore, db: db}
+	return &API{authStore: authStore, db: db, orderflow: orderflowFromEnvironment()}
 }
 
 func (a *API) Routes(r chi.Router) {
@@ -285,6 +287,11 @@ func (a *API) Routes(r chi.Router) {
 		r.Use(a.requireAuth)
 		r.Get("/chart/config", a.handleGet)
 		r.Put("/chart/config", a.handlePut)
+		r.Get("/chart/terminal", a.handleTerminalGet)
+		r.Put("/chart/terminal", a.handleTerminalPut)
+		r.Delete("/chart/terminal", a.handleTerminalDelete)
+		r.Get("/chart/orderflow/capabilities", a.handleOrderflowCapabilities)
+		r.Get("/chart/orderflow/{layer}", a.handleOrderflow)
 	})
 }
 
@@ -315,6 +322,11 @@ func defaultConfig() ChartConfig {
 }
 
 func normalizeConfig(config ChartConfig) (ChartConfig, error) {
+	if len(config.Terminal) > 0 {
+		if err := validateTerminal(config.Terminal); err != nil {
+			return ChartConfig{}, err
+		}
+	}
 	if config.Version != 1 {
 		return ChartConfig{}, errors.New("unsupported_version")
 	}
@@ -454,7 +466,9 @@ func (a *API) handlePut(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO user_chart_configurations (user_id, config)
 		VALUES ($1, $2::jsonb)
 		ON CONFLICT (user_id) DO UPDATE
-		SET config = EXCLUDED.config, updated_at = now()
+		SET config = CASE WHEN EXCLUDED.config ? 'terminal' OR NOT (user_chart_configurations.config ? 'terminal')
+		  THEN EXCLUDED.config ELSE EXCLUDED.config || jsonb_build_object('terminal', user_chart_configurations.config->'terminal') END,
+		  updated_at = now()
 		RETURNING updated_at
 	`, user.ID, raw).Scan(&updatedAt)
 	if err != nil {

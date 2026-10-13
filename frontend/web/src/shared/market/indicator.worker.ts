@@ -1,30 +1,33 @@
-import { calculateExtended } from "./indicatorExtended";
-import type { ExtraIndicatorId } from "./indicatorCatalogExtra";
+import { calculateIndicator } from "./indicatorEngine";
 import type { PerpCandle } from "./perpMarketData";
 import type { WorkerResponse } from "./indicatorBatch";
+import type { StudyDefinition } from "./indicatorBatch";
 self.addEventListener(
   "message",
-  (
+  async (
     event: MessageEvent<{
       token: number;
       candles: PerpCandle[];
       barSeconds?: number;
-      definitions: { key: string; id: ExtraIndicatorId; period?: number }[];
+      definitions: StudyDefinition[];
     }>,
   ) => {
     const { token, candles, definitions } = event.data;
     try {
       self.postMessage({
         token,
-        output: definitions.map((d) => ({
-          key: d.key,
-          indicator: calculateExtended(
-            candles,
-            d.id,
-            d.period,
-            event.data.barSeconds,
-          ),
-        })),
+        output: await Promise.all(
+          definitions.map(async (d) => ({
+            key: d.key,
+            indicator: await calculateIndicator(
+              candles,
+              d.id,
+              d.period,
+              event.data.barSeconds,
+              d,
+            ),
+          })),
+        ),
       } satisfies WorkerResponse);
     } catch (error) {
       self.postMessage({

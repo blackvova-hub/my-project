@@ -6,6 +6,8 @@
   "scripts": {
     "test:charts": "node --experimental-strip-types --test tests/charts.test.mjs",
     "test:charts:live": "node tests/charts-live.mjs",
+    "test:terminal": "node --experimental-strip-types --test tests/terminal-workspace.test.mjs",
+    "test:terminal:live": "node --experimental-strip-types tests/terminal-live.mjs",
     "test:indicators": "node --experimental-strip-types --test tests/indicators.test.mjs",
     "test:indicators:live": "node --experimental-strip-types tests/indicators-live.mjs",
     "test:arbitrage": "node --experimental-strip-types --test tests/arbitrage.test.mjs",

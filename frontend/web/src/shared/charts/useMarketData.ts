@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchMarketCandles,
   fetchMarketPriceFormat,
@@ -13,7 +13,19 @@ import type {
   PerpPriceFormat,
   PerpStreamStatus,
 } from "../market/perpMarketData";
-export function useMarketData(instrument: Instrument, interval: ChartInterval) {
+export function useMarketData(
+  input: Instrument,
+  interval: ChartInterval,
+  enabled = true,
+) {
+  const instrument = useMemo(
+    () => ({
+      exchange: input.exchange,
+      market: input.market,
+      symbol: input.symbol,
+    }),
+    [input.exchange, input.market, input.symbol],
+  );
   const key = `${instrumentKey(instrument)}:${interval}`;
   const [state, setState] = useState<{
     key: string;
@@ -41,6 +53,7 @@ export function useMarketData(instrument: Instrument, interval: ChartInterval) {
     current.current = state;
   }, [state]);
   useEffect(() => {
+    if (!enabled) return;
     const abort = new AbortController();
     request.current = abort;
     page.current = false;
@@ -139,10 +152,11 @@ export function useMarketData(instrument: Instrument, interval: ChartInterval) {
     };
     // Primitive identity prevents reconnecting on parent renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, reload]);
+  }, [key, reload, enabled]);
   const loadHistory = useCallback(async () => {
     const s = current.current;
     if (
+      !enabled ||
       s.key !== key ||
       s.loading ||
       !s.candles.length ||
@@ -181,11 +195,42 @@ export function useMarketData(instrument: Instrument, interval: ChartInterval) {
     } finally {
       page.current = false;
     }
-  }, [key, instrument, interval]);
+  }, [key, instrument, interval, enabled]);
+  const loadAround = useCallback(
+    async (time: number) => {
+      const s = current.current;
+      if (s.key !== key || !request.current) return [];
+      if (
+        s.candles.length &&
+        time >= s.candles[0].time &&
+        time <= s.candles.at(-1)!.time
+      )
+        return s.candles;
+      const signal = request.current.signal;
+      const seconds = CHART_INTERVALS.find(
+        (i) => i.value === interval,
+      )!.seconds;
+      const rows = await fetchMarketCandles(
+        instrument,
+        interval,
+        signal,
+        time + seconds * 250,
+      );
+      if (signal.aborted || !rows.length) return [];
+      const merged = normalizeCandles([...rows, ...s.candles.slice(-1000)]);
+      setState((v) =>
+        v.key === key ? { ...v, candles: merged, error: "" } : v,
+      );
+      return merged;
+    },
+    [key, instrument, interval],
+  );
+  const retry = useCallback(() => setReload((n) => n + 1), []);
   return {
     ...(state.key === key ? state : { ...state, candles: [], loading: true }),
     loadHistory,
-    retry: () => setReload((n) => n + 1),
+    loadAround,
+    retry,
     seconds: CHART_INTERVALS.find((i) => i.value === interval)!.seconds,
   };
 }

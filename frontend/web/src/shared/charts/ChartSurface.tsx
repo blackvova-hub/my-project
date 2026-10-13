@@ -1,15 +1,19 @@
+import { ChartStudies } from "./ChartStudies";
+import type {
+  IndicatorInstance,
+  PanelLayout,
+  StudySettings,
+} from "./studySettings";
 import type { ExternalPane } from "./derivatives";
 import { VolumeProfileLayer } from "./VolumeProfileLayer";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  LineSeries,
   AreaSeries,
   BarSeries,
   CandlestickSeries,
-  HistogramSeries,
-  LineSeries,
   PriceScaleMode,
   createSeriesMarkers,
-  type ISeriesApi,
   type SeriesMarker,
   type Time,
   type IPriceLine,
@@ -20,11 +24,7 @@ import {
   timestamp,
   type Candle,
 } from "./engine";
-import { calculateIndicatorBatch } from "../market/indicatorBatch";
 import {
-  INDICATOR_CATALOG,
-  defaultIndicatorPeriod,
-  isClassicIndicatorId,
   isSmartMoneyIndicatorId,
   type IndicatorId,
 } from "../market/indicatorTypes";
@@ -42,14 +42,23 @@ import { useDrawingHistory } from "./drawings/useDrawingHistory";
 import { type Drawing } from "./drawings/model";
 import "./charts.css";
 export type ChartMode = "candles" | "bars" | "line" | "area";
-export type IndicatorInstance = {
-  key: string;
-  id: import("../market/indicatorTypes").ClassicIndicatorId;
-  period?: number;
-  color?: string;
-};
+export type { IndicatorInstance } from "./studySettings";
 export type ChartSurfaceProps = {
   instances?: IndicatorInstance[];
+  studySettings?: Record<string, StudySettings>;
+  panelLayout?: PanelLayout;
+  editableStudies?: boolean;
+  onStudySettings?: (key: string, settings: StudySettings) => void;
+  onStudyRemove?: (key: string) => void;
+  onStudyDuplicate?: (key: string) => void;
+  onPanelLayout?: (layout: PanelLayout) => void;
+  percent?: boolean;
+  onScaleChange?: (change: {
+    autoScale?: boolean;
+    log?: boolean;
+    percent?: boolean;
+    follow?: boolean;
+  }) => void;
   candles: readonly Candle[];
   externalPanes?: ExternalPane[];
   title?: string;
@@ -96,6 +105,15 @@ const EMPTY_CANDLES: Candle[] = [],
 export function ChartSurface({
   candles: raw,
   instances = EMPTY_INSTANCES,
+  studySettings,
+  panelLayout,
+  editableStudies,
+  onStudySettings,
+  onStudyRemove,
+  onStudyDuplicate,
+  onPanelLayout,
+  percent = false,
+  onScaleChange,
   externalPanes = EMPTY_PANES,
   title,
   height = 500,
@@ -134,11 +152,7 @@ export function ChartSurface({
   const { theme } = useTheme(),
     host = useRef<HTMLDivElement>(null),
     [api, setApi] = useState<DrawingRuntime | null>(null),
-    [hover, setHover] = useState<Candle | null>(null),
-    [indicatorError, setIndicatorError] = useState("");
-  const [indicatorPoints, setIndicatorPoints] = useState<
-    Record<string, number>
-  >({});
+    [hover, setHover] = useState<Candle | null>(null);
   const candles = useMemo(() => normalizeCandles(raw), [raw]);
   const marketTimes = useMemo(
     () => new Set(candles.map((c) => c.time)),
@@ -154,11 +168,6 @@ export function ChartSurface({
       ),
     [externalPanes, marketTimes],
   );
-  const indicatorOwner = useRef<DrawingRuntime | null>(null);
-  const calculationGeneration = useRef(0);
-  const indicatorRuntime = useRef<
-    Map<string, ISeriesApi<"Line" | "Histogram" | "Candlestick">>
-  >(new Map());
   const lastReset = useRef(0);
   const history = useDrawingHistory(drawingKey, initialDrawings),
     previous = useRef<readonly Candle[]>(EMPTY_CANDLES),
@@ -175,7 +184,12 @@ export function ChartSurface({
       loadedKey.current !== drawingKey ||
       loadedInitial.current !== initialDrawings
     ) {
-      history.replace(initialDrawings);
+      if (loadedKey.current !== drawingKey) previous.current = EMPTY_CANDLES;
+      if (
+        loadedKey.current !== drawingKey ||
+        JSON.stringify(history.items) !== JSON.stringify(initialDrawings)
+      )
+        history.replace(initialDrawings);
       loadedKey.current = drawingKey;
       loadedInitial.current = initialDrawings;
     }
@@ -261,16 +275,22 @@ export function ChartSurface({
       layout: {
         background: { color: t.surface },
         textColor: t.foreground,
+        fontSize: editableStudies ? 12 : 11,
         panes: { separatorColor: t.grid, separatorHoverColor: t.crosshair },
       },
       grid: {
         vertLines: { color: t.grid, visible: grid },
         horzLines: { color: t.grid, visible: grid },
       },
+      leftPriceScale: { borderColor: t.grid },
       rightPriceScale: {
         borderColor: t.grid,
         autoScale,
-        mode: log ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
+        mode: log
+          ? PriceScaleMode.Logarithmic
+          : percent
+            ? PriceScaleMode.Percentage
+            : PriceScaleMode.Normal,
       },
       timeScale: { borderColor: t.grid },
       crosshair: {
@@ -292,7 +312,7 @@ export function ChartSurface({
           }
         : {}),
     } as never);
-  }, [api, theme, log, autoScale, grid, mode]);
+  }, [api, theme, log, percent, autoScale, grid, mode, editableStudies]);
   useEffect(() => {
     if (!api || api.disposed) return;
     api.series.applyOptions({
@@ -378,148 +398,6 @@ export function ChartSurface({
     }
   }, [api, resetToken, candles.length, initialBars]);
   useEffect(() => {
-    if (!api || api.disposed || !volume) return;
-    const series = api.chart.addSeries(
-      HistogramSeries,
-      {
-        title: "Объём",
-        priceFormat: { type: "volume" },
-        priceLineVisible: false,
-        lastValueVisible: true,
-      },
-      1,
-    );
-    api.chart.panes()[1]?.setStretchFactor(1);
-    api.chart.panes()[0]?.setStretchFactor(5);
-    return () => {
-      if (!api.disposed) api.chart.removeSeries(series);
-    };
-  }, [api, volume]);
-  useEffect(() => {
-    if (!api || api.disposed || !volume) return;
-    const pane = api.chart.panes()[1];
-    const series = pane?.getSeries()[0] as ISeriesApi<"Histogram"> | undefined;
-    if (!series) return;
-    const t = readChartTheme();
-    series.setData(
-      candles.map((c) => ({
-        time: timestamp(c.time),
-        value: c.volume,
-        color: c.close >= c.open ? t.up + "80" : t.down + "80",
-      })),
-    );
-  }, [api, candles, volume, theme]);
-  useEffect(() => {
-    if (!api || api.disposed) return;
-    const runtime = indicatorRuntime.current;
-    calculationGeneration.current++;
-    for (const series of runtime.values())
-      if (indicatorOwner.current === api && !api.disposed)
-        api.chart.removeSeries(series);
-    runtime.clear();
-    indicatorOwner.current = api;
-  }, [api, indicators, periods, volume, instances, drawingKey, interval]);
-  useEffect(() => {
-    if (!api || api.disposed) return;
-    let disposed = false;
-    const generation = calculationGeneration.current,
-      abort = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        const definitions = [
-          ...indicators.filter(isClassicIndicatorId).map((id) => ({
-            key: id,
-            id,
-            period: periods?.[id],
-            color: undefined,
-          })),
-          ...instances,
-        ];
-        const output = await calculateIndicatorBatch(
-          candles as PerpCandle[],
-          definitions,
-          abort.signal,
-          interval,
-        );
-        if (api.disposed || generation !== calculationGeneration.current)
-          return;
-        let pane = volume ? 2 : 1;
-        for (const { definition, indicator } of output) {
-          const paneIndex = indicator.placement === "pane" ? pane++ : 0;
-          for (const line of indicator.series) {
-            const key = `${definition.key}:${line.key}`;
-            let series = indicatorRuntime.current.get(key);
-            if (!series) {
-              api.chart.panes()[0]?.setStretchFactor(5);
-              series =
-                line.kind === "line"
-                  ? api.chart.addSeries(
-                      LineSeries,
-                      {
-                        title: line.title,
-                        color: definition.color ?? line.color,
-                        lineWidth: line.lineWidth ?? 1,
-                        lineStyle: line.lineStyle ?? 0,
-                        lineVisible: line.lineVisible ?? true,
-                        pointMarkersVisible: line.pointMarkersVisible ?? false,
-                        priceLineVisible: false,
-                        lastValueVisible: indicator.placement === "pane",
-                      },
-                      paneIndex,
-                    )
-                  : api.chart.addSeries(
-                      HistogramSeries,
-                      {
-                        title: line.title,
-                        color: definition.color ?? line.color,
-                        priceLineVisible: false,
-                      },
-                      paneIndex,
-                    );
-              indicatorRuntime.current.set(key, series);
-              if (indicator.placement === "pane")
-                api.chart.panes()[paneIndex]?.setStretchFactor(1.25);
-            }
-            series.setData(
-              (definition.color && line.kind === "histogram"
-                ? line.data.map((point) => ({
-                    ...point,
-                    color: definition.color,
-                  }))
-                : line.data) as never,
-            );
-          }
-        }
-        setIndicatorError("");
-        setIndicatorPoints(
-          Object.fromEntries(
-            output.map(({ definition, indicator }) => [
-              definition.key,
-              indicator.series.reduce((total, s) => total + s.data.length, 0),
-            ]),
-          ),
-        );
-      } catch {
-        if (!disposed && !api.disposed)
-          setIndicatorError("Не удалось рассчитать индикаторы");
-      }
-    }, 180);
-    return () => {
-      disposed = true;
-      clearTimeout(timer);
-      abort.abort();
-    };
-  }, [
-    api,
-    candles,
-    indicators,
-    periods,
-    volume,
-    instances,
-    drawingKey,
-    interval,
-  ]);
-  useEffect(() => {
     if (!api || api.disposed) return;
     const times = new Set(candles.map((c) => c.time));
     const plugin = createSeriesMarkers(
@@ -551,94 +429,13 @@ export function ChartSurface({
       if (!api.disposed) for (const p of lines) api.series.removePriceLine(p);
     };
   }, [api, priceLines]);
-  useEffect(() => {
-    if (!api || api.disposed) return;
-    const active = new Set(externalPanes.map((p) => p.id));
-    for (const [key, series] of indicatorRuntime.current) {
-      if (key.startsWith("external:") && !active.has(key.split(":")[1])) {
-        api.chart.removeSeries(series);
-        indicatorRuntime.current.delete(key);
-      }
-    }
-    let pane =
-      (volume ? 2 : 1) +
-      indicators.filter(
-        (id) =>
-          INDICATOR_CATALOG.find((i) => i.id === id)?.placement === "pane",
-      ).length +
-      instances.filter(
-        (i) =>
-          INDICATOR_CATALOG.find((p) => p.id === i.id)?.placement === "pane",
-      ).length;
-    const times = new Set(candles.map((c) => c.time));
-    for (const data of externalPanes) {
-      const definitions = data.series ?? [
-        {
-          key: "main",
-          kind: "line" as const,
-          title: data.title,
-          color: data.color,
-          data: data.data,
-        },
-      ];
-      for (const definition of definitions) {
-        const key = `external:${data.id}:${definition.key}`;
-        let series = indicatorRuntime.current.get(key);
-        if (!series) {
-          series = api.chart.addSeries(
-            definition.kind === "candles"
-              ? CandlestickSeries
-              : definition.kind === "histogram"
-                ? HistogramSeries
-                : LineSeries,
-            {
-              title: definition.title,
-              color: definition.color,
-              upColor: "#34d399",
-              downColor: "#fb7185",
-              wickUpColor: "#34d399",
-              wickDownColor: "#fb7185",
-              borderVisible: false,
-              lineWidth: 1,
-              priceLineVisible: false,
-              priceFormat: data.percent
-                ? {
-                    type: "custom",
-                    formatter: (v: number) => v.toFixed(4) + "%",
-                  }
-                : { type: "volume" },
-            },
-            pane,
-          );
-          indicatorRuntime.current.set(key, series);
-          api.chart.panes()[pane]?.setStretchFactor(1.25);
-        }
-        series.moveToPane(pane);
-        series.setData(
-          definition.data
-            .filter((p) => times.has(p.time))
-            .map((p) => ({
-              ...p,
-              time: timestamp(p.time),
-              ...(definition.kind === "histogram" && "value" in p
-                ? { color: p.value < 0 ? "#fb7185" : definition.color }
-                : {}),
-            })) as never,
-        );
-      }
-      pane++;
-    }
-  }, [api, externalPanes, candles, indicators, volume, periods, instances]);
-  const classic = indicators.map((id) =>
-      INDICATOR_CATALOG.find((i) => i.id === id),
-    ),
-    current = hover ?? candles.at(-1),
+  const current = hover ?? candles.at(-1),
     precision =
       priceFormat?.precision ??
       inferPerpPriceFormat(candles as PerpCandle[]).precision;
   return (
     <div
-      className={`ct-surface ${drawings ? "ct-with-drawings" : ""} ${className}`}
+      className={`ct-surface ${drawings ? "ct-with-drawings" : ""} ${panelLayout?.maximized && panelLayout.maximized !== "price" ? "ct-pane-focus-secondary" : ""} ${className}`}
       style={{ height }}
       data-chart-surface
       tabIndex={0}
@@ -646,7 +443,6 @@ export function ChartSurface({
       data-visible-count={candles.length}
       data-last-time={candles.at(-1)?.time}
       data-drawing-count={history.items.length}
-      data-indicator-points={JSON.stringify(indicatorPoints)}
       data-market-points={JSON.stringify(marketPoints)}
     >
       <div
@@ -679,45 +475,25 @@ export function ChartSurface({
           </span>
         </div>
       )}
-      {(!!classic.length || !!instances.length) && (
-        <div className="ct-indicator-legend">
-          {instances.map((i) => (
-            <span
-              key={i.key}
-              style={{
-                color:
-                  i.color ??
-                  INDICATOR_CATALOG.find((p) => p.id === i.id)?.color,
-              }}
-            >
-              {i.id.toUpperCase()} {i.period ?? ""}
-              {indicatorPoints[i.key] === 0 &&
-                !i.id.includes("volume_profile") && (
-                  <span title="Проверьте глубину истории и таймфрейм; подтверждённых событий может не быть">
-                    {" "}
-                    · нет значений
-                  </span>
-                )}
-            </span>
-          ))}
-          {classic.map(
-            (i) =>
-              i && (
-                <span key={i.id} style={{ color: i.color }}>
-                  {defaultIndicatorPeriod(i.id) !== undefined
-                    ? `${i.id === "supertrend" ? "ST" : i.shortLabel.replace(/\s+\d+$/, "")} ${periods?.[i.id] ?? defaultIndicatorPeriod(i.id)}${i.id === "supertrend" ? "×3" : ""}`
-                    : i.shortLabel}
-                  {indicatorPoints[i.id] === 0 &&
-                    !i.id.includes("volume_profile") && (
-                      <span title="Проверьте глубину истории и таймфрейм; подтверждённых событий может не быть">
-                        {" "}
-                        · нет значений
-                      </span>
-                    )}
-                </span>
-              ),
-          )}
-        </div>
+      {api && (
+        <ChartStudies
+          api={api}
+          candles={candles}
+          interval={interval}
+          volume={volume}
+          indicators={indicators}
+          periods={periods}
+          instances={instances}
+          external={externalPanes}
+          settings={studySettings}
+          layout={panelLayout}
+          editable={editableStudies}
+          identity={drawingKey}
+          onSettings={onStudySettings}
+          onRemove={onStudyRemove}
+          onDuplicate={onStudyDuplicate}
+          onLayout={onPanelLayout}
+        />
       )}
       {api && drawings && (
         <DrawingEditor
@@ -725,9 +501,13 @@ export function ChartSurface({
           candles={candles}
           interval={interval}
           history={history}
-          disabled={selecting}
+          disabled={
+            selecting ||
+            (!!panelLayout?.maximized && panelLayout.maximized !== "price")
+          }
           onSave={onSave}
           cloudStatus={saveStatus}
+          onScaleChange={onScaleChange}
         />
       )}
       {api && indicators.some(isSmartMoneyIndicatorId) && (
@@ -745,7 +525,9 @@ export function ChartSurface({
         ]
           .filter(
             (i) =>
-              i.id === "volume_profile" || i.id === "visible_volume_profile",
+              (i.id === "volume_profile" ||
+                i.id === "visible_volume_profile") &&
+              !studySettings?.[i.key]?.hidden,
           )
           .map((i) => (
             <VolumeProfileLayer
@@ -787,13 +569,12 @@ export function ChartSurface({
           Выберите свечу начала воспроизведения
         </div>
       )}
-      {(loading || error || indicatorError || !candles.length) && (
+      {(loading || error || !candles.length) && (
         <div
           className={`ct-chart-message ${candles.length ? "ct-message-inline" : ""}`}
           role={error ? "alert" : "status"}
         >
           {error ||
-            indicatorError ||
             (loading
               ? "Загружаем реальные рыночные данные…"
               : "Нет свечей для отображения")}

@@ -39,7 +39,7 @@ const base = (instrument: Instrument) =>
       : "https://fapi.binance.com";
 export const instrumentKey = (i: Instrument) =>
   `${i.exchange}:${i.market}:${i.symbol}`;
-async function json(url: string, signal: AbortSignal): Promise<unknown> {
+async function requestJson(url: string, signal: AbortSignal): Promise<unknown> {
   const response = await fetch(url, {
     signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
   });
@@ -48,6 +48,70 @@ async function json(url: string, signal: AbortSignal): Promise<unknown> {
   if (raw?.retCode !== undefined && raw.retCode !== 0)
     throw new Error(raw.retMsg || "Ошибка биржи");
   return raw;
+}
+const pendingRequests = new Map<
+  string,
+  {
+    controller: AbortController;
+    promise: Promise<unknown>;
+    consumers: number;
+    settled: boolean;
+  }
+>();
+function json(url: string, signal: AbortSignal): Promise<unknown> {
+  if (signal.aborted)
+    return Promise.reject(new DOMException("Request cancelled", "AbortError"));
+  let request = pendingRequests.get(url);
+  if (!request) {
+    const controller = new AbortController();
+    request = {
+      controller,
+      promise: requestJson(url, controller.signal),
+      consumers: 0,
+      settled: false,
+    };
+    pendingRequests.set(url, request);
+    const current = request;
+    const settled = () => {
+      current.settled = true;
+      if (pendingRequests.get(url) === current) pendingRequests.delete(url);
+    };
+    current.promise.then(settled, settled);
+  }
+  const shared = request;
+  shared.consumers++;
+  return new Promise((resolve, reject) => {
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      signal.removeEventListener("abort", abort);
+      shared.consumers--;
+      if (!shared.consumers && !shared.settled) {
+        shared.controller.abort();
+        if (pendingRequests.get(url) === shared) pendingRequests.delete(url);
+      }
+    };
+    const abort = () => {
+      release();
+      reject(new DOMException("Request cancelled", "AbortError"));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    shared.promise.then(
+      (value) => {
+        if (!released) {
+          release();
+          resolve(value);
+        }
+      },
+      (error) => {
+        if (!released) {
+          release();
+          reject(error);
+        }
+      },
+    );
+  });
 }
 export async function fetchMarketCandles(
   i: Instrument,
@@ -116,7 +180,7 @@ export async function fetchMarketPriceFormat(
     precision: Math.max(0, Math.min(10, precision)),
   };
 }
-export function subscribeMarketCandles(
+function connectMarketCandles(
   i: Instrument,
   interval: ChartInterval,
   onCandle: (c: Candle) => void,
@@ -190,6 +254,58 @@ export function subscribeMarketCandles(
     if (reconnect) clearTimeout(reconnect);
     if (heartbeat) clearInterval(heartbeat);
     socket?.close(1000, "chart_unmounted");
+  };
+}
+type Listener = {
+  candle: (c: Candle) => void;
+  status: (s: PerpStreamStatus) => void;
+};
+const sharedStreams = new Map<
+  string,
+  {
+    listeners: Set<Listener>;
+    stop: () => void;
+    status: PerpStreamStatus;
+    last?: Candle;
+  }
+>();
+// Windows/comparisons with the same instrument share one socket. The last
+// subscriber owns shutdown; reconnecting never duplicates a transport.
+export function subscribeMarketCandles(
+  i: Instrument,
+  interval: ChartInterval,
+  onCandle: Listener["candle"],
+  onStatus: Listener["status"],
+) {
+  const key = `${instrumentKey(i)}:${interval}`,
+    listener = { candle: onCandle, status: onStatus };
+  let shared = sharedStreams.get(key);
+  if (!shared) {
+    shared = { listeners: new Set(), stop: () => {}, status: "connecting" };
+    sharedStreams.set(key, shared);
+    const feed = shared;
+    feed.stop = connectMarketCandles(
+      i,
+      interval,
+      (c) => {
+        feed.last = c;
+        for (const target of feed.listeners) target.candle(c);
+      },
+      (status) => {
+        feed.status = status;
+        for (const target of feed.listeners) target.status(status);
+      },
+    );
+  }
+  shared.listeners.add(listener);
+  onStatus(shared.status);
+  if (shared.last) onCandle(shared.last);
+  return () => {
+    shared!.listeners.delete(listener);
+    if (!shared!.listeners.size) {
+      shared!.stop();
+      sharedStreams.delete(key);
+    }
   };
 }
 export type MarketTicker = {

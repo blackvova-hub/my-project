@@ -1,0 +1,27 @@
+{
+  "checks": [
+    "ordinary production authentication and protected workspace API",
+    "independent indicator instances, inputs, hide/show, pane order and maximize",
+    "pane separator drag changes geometry and persists its height",
+    "long-position drawing, undo, cursor zoom and return to live market",
+    "drawing undo/redo and timeframe change retain drawings and chart instance",
+    "MACD inputs and component inspector",
+    "BTC with real Binance OI, paid Funding and candle-based CVD panels",
+    "comparison overlay, independent scale, settings/removal and Log/% modes",
+    "provider capabilities expose missing sources without synthetic layers",
+    "layouts 1–9 fit desktop viewport; independent windows and optional timeframe sync",
+    "Light/Dark/Green preserve chart instance and viewport geometry",
+    "atomic server save, drawings, full reload restoration and stale-save rejection",
+    "network interruption keeps history and drawings; recovery remains usable",
+    "1920 desktop, native concept size, tablet and mobile controls have no horizontal overflow",
+    "analytics demo charts still render through shared system",
+    "replay route remains available"
+  ],
+  "errors": [],
+  "sources": [
+    "fapi.binance.com"
+  ],
+  "server": "http://192.168.0.130",
+  "marketData": "real exchange feeds",
+  "preferencesRestored": true
+}

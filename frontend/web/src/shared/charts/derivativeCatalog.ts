@@ -13,6 +13,11 @@ export const DERIVATIVE_PANELS = [
     "Funding · фактическая ставка, %",
     "Фактически выплаченные ставки; не прогноз",
   ),
+  item(
+    "funding_weighted",
+    "Funding · OI-взвешенная Bybit + Binance, %",
+    "Фактические ставки; веса OI в USDT на общих интервалах",
+  ),
   item("basis", "Базис · mark/index, %", "(mark / index − 1) × 100"),
   item(
     "ratio",

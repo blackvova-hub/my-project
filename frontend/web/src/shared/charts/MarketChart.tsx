@@ -149,7 +149,7 @@ export function MarketChart({
         loading={data.loading}
         error={data.error}
         resetToken={props.resetToken ?? reset}
-        follow
+        follow={props.follow ?? true}
       />
       {!embedded && (
         <span

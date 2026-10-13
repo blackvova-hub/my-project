@@ -27,6 +27,7 @@ export function useDerivativePanels(
   i: Instrument,
   interval: ChartInterval,
   ids: DerivativeId[],
+  enabled = true,
 ) {
   return useQuery({
     queryKey: [
@@ -37,7 +38,7 @@ export function useDerivativePanels(
       interval,
       ids.join(","),
     ],
-    enabled: !!ids.length,
+    enabled: enabled && !!ids.length,
     queryFn: async ({ signal }) => {
       // Families sharing a source reuse one request within this refresh.
       const requests = new Map<string, Promise<unknown>>();

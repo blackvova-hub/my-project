@@ -31,6 +31,31 @@ export type ExternalPane = {
   note?: string;
 };
 export type JsonRequest = (url: string) => Promise<unknown>;
+export function weightedFunding(
+  left: Observation[],
+  right: Observation[],
+  leftWeight: Observation[],
+  rightWeight: Observation[],
+) {
+  const rates = new Map(right.map((p) => [p.time, p.value])),
+    a = new Map(leftWeight.map((p) => [p.time, p.value])),
+    b = new Map(rightWeight.map((p) => [p.time, p.value]));
+  return left.flatMap((p) => {
+    const other = rates.get(p.time),
+      wa = a.get(p.time),
+      wb = b.get(p.time);
+    if (
+      other === undefined ||
+      wa === undefined ||
+      wb === undefined ||
+      ![p.value, other, wa, wb].every(Number.isFinite) ||
+      wa <= 0 ||
+      wb <= 0
+    )
+      return [];
+    return [{ time: p.time, value: (p.value * wa + other * wb) / (wa + wb) }];
+  });
+}
 type JsonObject = Record<string, unknown>;
 function numeric(value: unknown) {
   return typeof value === "number" ||
@@ -67,6 +92,7 @@ export function observationCandles(
   rows: readonly Observation[],
   seconds: number,
 ) {
+  const counts = new Map<number, Set<number>>();
   const map = new Map<
     number,
     { time: number; open: number; high: number; low: number; close: number }
@@ -78,6 +104,9 @@ export function observationCandles(
     .sort((a, b) => a.time - b.time)) {
     const time = alignBarTime(p.time, seconds),
       prev = map.get(time);
+    const samples = counts.get(time) ?? new Set<number>();
+    samples.add(p.time);
+    counts.set(time, samples);
     if (prev) {
       prev.high = Math.max(prev.high, p.value);
       prev.low = Math.min(prev.low, p.value);
@@ -91,7 +120,7 @@ export function observationCandles(
         close: p.value,
       });
   }
-  return [...map.values()];
+  return [...map.values()].filter((p) => (counts.get(p.time)?.size ?? 0) >= 2);
 }
 export function takerRows(raw: unknown) {
   if (!Array.isArray(raw)) throw new Error("Binance не вернул свечи");
@@ -209,6 +238,36 @@ export async function fetchMarketStudy(
     ];
     note =
       "Существующие сканеры · доступные события последних 24ч · неполное покрытие · отсутствие точки не означает нулевые ликвидации · без деления по стороне";
+  } else if (id === "funding_weighted") {
+    const bybit = { ...i, exchange: "bybit" as const },
+      binance = { ...i, exchange: "binance" as const };
+    const [a, b, bybitOI, binanceOI, index] = await Promise.all([
+      fetchMarketStudy(bybit, iv, "funding", get),
+      fetchMarketStudy(binance, iv, "funding", get),
+      fetchMarketStudy(bybit, iv, "oi", get),
+      fetchMarketStudy(binance, iv, "oi_value", get),
+      fetchMarketStudy(bybit, iv, "index_price", get),
+    ]);
+    const prices = new Map(index.data.map((p) => [p.time, p.value]));
+    const quoteOI = bybitOI.data.flatMap((p) => {
+      const price = prices.get(p.time);
+      return price !== undefined && price > 0
+        ? [{ time: p.time, value: p.value * price }]
+        : [];
+    });
+    rows = weightedFunding(a.data, b.data, quoteOI, binanceOI.data);
+    percent = true;
+    series = [
+      {
+        key: id,
+        title: info.label,
+        color: info.color,
+        kind: "histogram",
+        data: rows,
+      },
+    ];
+    note =
+      "Bybit + Binance, не все биржи · фактические выплаты · веса OI в USDT: Bybit OI × index close, Binance sumOpenInterestValue · последние наблюдения общего интервала · только точки с обеими ставками и весами · не интерполируется";
   } else if (id === "aggregate_oi") {
     const [a, b] = await Promise.all([
         fetchMarketStudy({ ...i, exchange: "bybit" }, iv, "oi", get),

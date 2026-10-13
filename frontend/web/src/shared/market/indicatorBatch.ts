@@ -1,11 +1,8 @@
 import type { PerpCandle } from "./perpMarketData";
 import type { ClassicIndicatorId } from "./indicatorTypes";
-import {
-  EXTRA_INDICATORS,
-  type ExtraIndicatorId,
-} from "./indicatorCatalogExtra";
 import { calculateIndicator, type IndicatorOutput } from "./indicatorEngine";
-export type StudyDefinition = {
+import type { StudySettings } from "../charts/studySettings";
+export type StudyDefinition = StudySettings & {
   key: string;
   id: ClassicIndicatorId;
   period?: number;
@@ -15,7 +12,7 @@ type WorkerRequest = {
   token: number;
   candles: PerpCandle[];
   barSeconds?: number;
-  definitions: { key: string; id: ExtraIndicatorId; period?: number }[];
+  definitions: StudyDefinition[];
 };
 export type WorkerResponse = {
   token: number;
@@ -29,7 +26,6 @@ type Job = {
   reject: (error: Error) => void;
   abort: () => void;
 };
-const extraIds = new Set<string>(EXTRA_INDICATORS.map((i) => i.id));
 let worker: Worker | null = null,
   token = 0,
   active: number | null = null;
@@ -113,15 +109,14 @@ export async function calculateIndicatorBatch(
   signal?: AbortSignal,
   barSeconds?: number,
 ) {
-  const extended = definitions.filter((d) => extraIds.has(d.id));
   const inWorker =
     typeof Worker !== "undefined" &&
     candles.length >= 2000 &&
-    extended.length > 0;
+    definitions.length > 0;
   const [base, extra] = await Promise.all([
     Promise.all(
       definitions
-        .filter((d) => !inWorker || !extraIds.has(d.id))
+        .filter(() => !inWorker)
         .map(async (definition) => ({
           definition,
           indicator: await calculateIndicator(
@@ -129,6 +124,7 @@ export async function calculateIndicatorBatch(
             definition.id,
             definition.period,
             barSeconds,
+            definition,
           ),
         })),
     ),
@@ -137,11 +133,7 @@ export async function calculateIndicatorBatch(
           {
             candles,
             barSeconds,
-            definitions: extended.map((d) => ({
-              key: d.key,
-              id: d.id as ExtraIndicatorId,
-              period: d.period,
-            })),
+            definitions,
           },
           signal,
         )

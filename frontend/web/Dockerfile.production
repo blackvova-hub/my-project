@@ -3,11 +3,7 @@ SHELL ["/bin/bash", "-lc"]
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --include=optional --loglevel=warn \
-  && npm install --no-save --ignore-scripts \
-    @rollup/rollup-linux-x64-gnu@4.54.0 \
-    lightningcss-linux-x64-gnu@1.30.2 \
-    @tailwindcss/oxide-linux-x64-gnu@4.1.18
+RUN npm ci --include=optional --loglevel=warn
 
 COPY . .
 RUN npm run build

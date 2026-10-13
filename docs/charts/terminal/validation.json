@@ -1,0 +1,48 @@
+{
+  "server": "http://192.168.0.130/charts",
+  "execution": "server Docker only",
+  "frontend": {
+    "typescript": "passed",
+    "eslint": "passed",
+    "unitTests": 86,
+    "failures": 0,
+    "productionBuild": "passed"
+  },
+  "backend": {
+    "goTest": "passed",
+    "goVet": "passed",
+    "isolatedPostgreSQL": "passed",
+    "packagesTested": 14
+  },
+  "browser": {
+    "checks": 16,
+    "errors": 0,
+    "marketSources": [
+      "fapi.binance.com"
+    ],
+    "preferencesRestored": true
+  },
+  "viewports": [
+    [
+      1440,
+      900
+    ],
+    [
+      1920,
+      1080
+    ],
+    [
+      1584,
+      992
+    ],
+    [
+      1024,
+      768
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "providerLayers": "not configured; server adapter available"
+}

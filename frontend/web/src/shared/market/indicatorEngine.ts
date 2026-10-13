@@ -1,5 +1,6 @@
 import type { HistogramData, LineData, UTCTimestamp } from "lightweight-charts";
 import type { PerpCandle } from "./perpMarketData";
+import { priceSource, type StudySettings } from "../charts/studySettings";
 import { calculateExtended } from "./indicatorExtended";
 import {
   EXTRA_INDICATORS,
@@ -41,6 +42,36 @@ export type IndicatorOutput = {
 };
 
 let libraryPromise: Promise<typeof import("technicalindicators")> | null = null;
+export const PRICE_SOURCE_STUDIES = new Set<string>([
+  "sma",
+  "ema",
+  "wma",
+  "rma",
+  "dema",
+  "tema",
+  "trima",
+  "hma",
+  "alma",
+  "kama",
+  "hamming",
+  "ma_cross",
+  "ema_cross",
+  "bollinger",
+  "bb_percent",
+  "bb_width",
+  "rsi",
+  "macd",
+  "roc",
+  "momentum",
+  "trix",
+  "tsi",
+  "smi_ergodic",
+  "price_oscillator",
+  "stddev",
+  "stderr",
+  "historical_volatility",
+  "connors_rsi",
+]);
 
 function loadLibrary() {
   libraryPromise ??= import("technicalindicators");
@@ -203,7 +234,19 @@ export async function calculateIndicator(
   id: ClassicIndicatorId,
   selectedPeriod?: number,
   barSeconds?: number,
+  settings: StudySettings = {},
 ): Promise<IndicatorOutput> {
+  // Only price-derived studies support a selectable source. OHLC/volume-based
+  // formulas keep their actual candle inputs (VWAP remains UTC/HLC3).
+  if (
+    settings.source &&
+    settings.source !== "close" &&
+    PRICE_SOURCE_STUDIES.has(id)
+  )
+    candles = candles.map((c) => ({
+      ...c,
+      close: priceSource(c, settings.source),
+    }));
   if (EXTRA_INDICATORS.some((item) => item.id === id))
     return calculateExtended(
       candles,
@@ -273,7 +316,7 @@ export async function calculateIndicator(
     case "bollinger": {
       const output = indicators.bollingerbands({
         period,
-        stdDev: 2,
+        stdDev: settings.parameters?.deviation ?? 2,
         values: values.close,
       });
       return {
@@ -406,9 +449,9 @@ export async function calculateIndicator(
     case "macd": {
       const output = indicators.macd({
         values: values.close,
-        fastPeriod: 12,
-        slowPeriod: 26,
-        signalPeriod: 9,
+        fastPeriod: Math.round(settings.parameters?.fast ?? 12),
+        slowPeriod: Math.round(settings.parameters?.slow ?? 26),
+        signalPeriod: Math.round(settings.parameters?.signal ?? 9),
         SimpleMAOscillator: false,
         SimpleMASignal: false,
       });
