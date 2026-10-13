@@ -109,6 +109,7 @@ func sanitizeAssistantReply(reply string, question string) string {
 	normalizedQuestion := normalizeSearchText(question)
 	if !containsAny(normalizedQuestion, "url", "ссылк", "адрес страниц", "путь") {
 		reply = strings.NewReplacer(
+			"/community/voice", "«Комьюнити» → «Голосовой чат»",
 			"/community/channels", "«Комьюнити» → «Каналы»",
 			"/community/feed", "«Комьюнити» → «Лента»",
 			"/scanners/1", "«Сканеры» → «Сканер 1»",

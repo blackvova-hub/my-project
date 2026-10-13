@@ -33,6 +33,7 @@ import (
 	"backend/internal/httpapi/news"
 	"backend/internal/httpapi/scanner"
 	"backend/internal/httpapi/similarity"
+	"backend/internal/httpapi/voice"
 	"backend/internal/telegram/accountbot"
 )
 
@@ -189,6 +190,10 @@ func main() {
 	api := scannerapi.New(authStore, pool)
 	chartConfig := chartconfigapi.New(authStore, pool)
 	community := communityapi.New(authStore, pool)
+	voice := voiceapi.New(authStore, cfg.CORSOrigin)
+	voiceContext, stopVoice := context.WithCancel(context.Background())
+	defer stopVoice()
+	go voice.Run(voiceContext)
 	admin := adminapi.New(authStore, pool, logBuffer)
 	news := newsapi.New(pool)
 	var redisClient *redis.Client
@@ -231,6 +236,7 @@ func main() {
 		api.Routes(r)
 		chartConfig.Routes(r)
 		community.Routes(r)
+		voice.Routes(r)
 		admin.Routes(r)
 		news.Routes(r)
 		market.Routes(r)
@@ -246,6 +252,7 @@ func main() {
 		api.Routes(r)
 		chartConfig.Routes(r)
 		community.Routes(r)
+		voice.Routes(r)
 		admin.Routes(r)
 		news.Routes(r)
 		market.Routes(r)

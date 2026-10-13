@@ -1,0 +1,38 @@
+{
+  auto_https disable_redirects
+  admin off
+  default_sni {$SERVER_LAN_IP:192.168.0.130}
+  skip_install_trust
+}
+https://{$SERVER_LAN_IP:192.168.0.130} {
+  tls internal
+  header Permissions-Policy "camera=(), microphone=(self)"
+  # No room-management/admin API is exposed through the public gateway.
+  handle_path /livekit/* {
+    @signaling path /rtc /rtc/*
+    route {
+      reverse_proxy @signaling host.docker.internal:7880
+      respond 404
+    }
+  }
+  handle /voice-local-ca.crt {
+    root * /data/caddy/pki/authorities/local
+    rewrite * /root.crt
+    header Content-Disposition "attachment; filename=shortlong-local-ca.crt"
+    file_server
+  }
+  handle /api/community/voice/* {
+    reverse_proxy frontend:80
+  }
+  # Existing APIs retain the LAN HTTP origin policy. Translate only this exact
+  # trusted HTTPS origin; foreign Origin headers are never rewritten.
+  @sameOrigin header Origin https://{$SERVER_LAN_IP:192.168.0.130}
+  handle @sameOrigin {
+    reverse_proxy frontend:80 {
+      header_up Origin http://{$SERVER_LAN_IP:192.168.0.130}
+    }
+  }
+  handle {
+    reverse_proxy frontend:80
+  }
+}

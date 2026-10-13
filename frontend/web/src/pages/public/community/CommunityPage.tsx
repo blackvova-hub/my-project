@@ -13,17 +13,31 @@ export default function CommunityPage() {
               Пространство сообщества
             </h1>
             <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-              Выбери раздел: каналы для подписок и ленту для обновлений.
+              Выбери раздел: каналы, ленту или голосовой чат по криптопарам.
             </p>
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <Link
+            to="/community/voice"
+            className="rounded-2xl border border-border/60 bg-secondary/40 p-6 transition-colors hover:border-border hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <div className="text-sm font-semibold text-card-foreground">
+              Голосовой чат
+            </div>
+            <div className="mt-2 text-sm text-muted-foreground">
+              Комнаты по криптопарам. Слушай участников и обсуждай рынок
+              голосом.
+            </div>
+          </Link>
           <Link
             to="/community/channels"
             className="rounded-2xl border border-border/60 bg-secondary/40 p-6 transition-colors hover:border-border hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <div className="text-sm font-semibold text-card-foreground">Каналы</div>
+            <div className="text-sm font-semibold text-card-foreground">
+              Каналы
+            </div>
             <div className="mt-2 text-sm text-muted-foreground">
               Список каналов, подборки и теги.
             </div>
@@ -32,7 +46,9 @@ export default function CommunityPage() {
             to="/community/feed"
             className="rounded-2xl border border-border/60 bg-secondary/40 p-6 transition-colors hover:border-border hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <div className="text-sm font-semibold text-card-foreground">Лента</div>
+            <div className="text-sm font-semibold text-card-foreground">
+              Лента
+            </div>
             <div className="mt-2 text-sm text-muted-foreground">
               Обновления, обсуждения и активность сообщества.
             </div>

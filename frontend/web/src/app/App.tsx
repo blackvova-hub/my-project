@@ -30,7 +30,15 @@ const ScannersPageThree = lazy(
 );
 const NewsPage = lazy(() => import("../pages/public/news/NewsPage"));
 const ChartsPage = lazy(() => import("../pages/public/charts/ChartsPage"));
-const ArbitragePage = lazy(() => import("../pages/public/arbitrage/ArbitragePage"));
+const CommunityPage = lazy(
+  () => import("../pages/public/community/CommunityPage"),
+);
+const CommunityVoicePage = lazy(
+  () => import("../pages/public/community/CommunityVoicePage"),
+);
+const ArbitragePage = lazy(
+  () => import("../pages/public/arbitrage/ArbitragePage"),
+);
 const BacktestPage = lazy(
   () => import("../pages/public/backtest/BacktestPage"),
 );
@@ -206,8 +214,22 @@ export default function App() {
             }
           />
           <Route element={<PublicLayout />}>
-            <Route path="/charts" element={<RequireAuth><ChartsPage /></RequireAuth>} />
-            <Route path="/arbitrage" element={<RequireAuth><ArbitragePage /></RequireAuth>} />
+            <Route
+              path="/charts"
+              element={
+                <RequireAuth>
+                  <ChartsPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/arbitrage"
+              element={
+                <RequireAuth>
+                  <ArbitragePage />
+                </RequireAuth>
+              }
+            />
             <Route
               path="/replay"
               element={
@@ -272,7 +294,15 @@ export default function App() {
               path="/community"
               element={
                 <RequirePlan minPlan="pro">
-                  <FeatureBlocked />
+                  <CommunityPage />
+                </RequirePlan>
+              }
+            />
+            <Route
+              path="/community/voice"
+              element={
+                <RequirePlan minPlan="pro">
+                  <CommunityVoicePage />
                 </RequirePlan>
               }
             />
@@ -321,7 +351,8 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-      {!location.pathname.startsWith("/account") && !location.pathname.startsWith("/arbitrage") ? (
+      {!location.pathname.startsWith("/account") &&
+      !location.pathname.startsWith("/arbitrage") ? (
         <PrimaryExchangeGate />
       ) : null}
     </>

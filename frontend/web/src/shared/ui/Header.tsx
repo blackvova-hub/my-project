@@ -52,7 +52,8 @@ export default function Header({
     };
   }, [staticPosition]);
 
-  const linkBase = "app-nav-link whitespace-nowrap text-base transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  const linkBase =
+    "app-nav-link whitespace-nowrap text-base transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
   const linkActive = "text-primary";
   const linkInactive = "text-muted-foreground hover:text-foreground";
   const linkClass = (isActive: boolean) =>
@@ -60,9 +61,12 @@ export default function Header({
   const isAnchorActive = (hash: string) =>
     location.pathname === "/" && (location.hash || "#top") === hash;
   const anchorLinkClass = (hash: string) => linkClass(isAnchorActive(hash));
-  const actionClass = "rounded-xl border border-border bg-secondary px-4 py-2 text-sm text-secondary-foreground transition hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
-  const dropdownClass = "app-nav-dropdown pointer-events-none absolute left-0 top-full mt-2 w-44 rounded-xl border border-border bg-popover p-2 text-popover-foreground opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100";
-  const dropdownLinkClass = "block rounded-lg px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring";
+  const actionClass =
+    "rounded-xl border border-border bg-secondary px-4 py-2 text-sm text-secondary-foreground transition hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  const dropdownClass =
+    "app-nav-dropdown pointer-events-none absolute left-0 top-full mt-2 w-44 rounded-xl border border-border bg-popover p-2 text-popover-foreground opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100";
+  const dropdownLinkClass =
+    "block rounded-lg px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring";
   const mobileMenuLinkClass = dropdownLinkClass;
 
   const scrollToHash = (hash: string) => {
@@ -73,7 +77,9 @@ export default function Header({
       target.getBoundingClientRect().top + window.scrollY - headerOffset - 12;
     window.scrollTo({
       top: targetTop,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
     });
   };
 
@@ -166,10 +172,7 @@ export default function Header({
           </nav>
         ) : (
           <nav className="app-header-nav hidden items-center gap-4 xl:flex">
-            <NavLink
-              to="/"
-              className={({ isActive }) => linkClass(isActive)}
-            >
+            <NavLink to="/" className={({ isActive }) => linkClass(isActive)}>
               Главная
             </NavLink>
             {hasPlan(user?.plan, "pro") ? (
@@ -182,22 +185,13 @@ export default function Header({
                 </NavLink>
                 <div className={dropdownClass}>
                   <span className="pointer-events-auto absolute -top-2 left-0 h-2 w-full" />
-                  <Link
-                    to="/scanners/1"
-                    className={dropdownLinkClass}
-                  >
+                  <Link to="/scanners/1" className={dropdownLinkClass}>
                     Сканер 1
                   </Link>
-                  <Link
-                    to="/scanners/2"
-                    className={dropdownLinkClass}
-                  >
+                  <Link to="/scanners/2" className={dropdownLinkClass}>
                     Сканер 2
                   </Link>
-                  <Link
-                    to="/scanners/3"
-                    className={dropdownLinkClass}
-                  >
+                  <Link to="/scanners/3" className={dropdownLinkClass}>
                     Сканер 3
                   </Link>
                 </div>
@@ -212,16 +206,10 @@ export default function Header({
                 </NavLink>
                 <div className={dropdownClass}>
                   <span className="pointer-events-auto absolute -top-2 left-0 h-2 w-full" />
-                  <Link
-                    to="/scanners/1"
-                    className={dropdownLinkClass}
-                  >
+                  <Link to="/scanners/1" className={dropdownLinkClass}>
                     Сканер 1
                   </Link>
-                  <Link
-                    to="/scanners/2"
-                    className={dropdownLinkClass}
-                  >
+                  <Link to="/scanners/2" className={dropdownLinkClass}>
                     Сканер 2
                   </Link>
                 </div>
@@ -276,17 +264,14 @@ export default function Header({
                 </NavLink>
                 <div className={dropdownClass}>
                   <span className="pointer-events-auto absolute -top-2 left-0 h-2 w-full" />
-                  <Link
-                    to="/community/channels"
-                    className={dropdownLinkClass}
-                  >
+                  <Link to="/community/channels" className={dropdownLinkClass}>
                     Каналы
                   </Link>
-                  <Link
-                    to="/community/feed"
-                    className={dropdownLinkClass}
-                  >
+                  <Link to="/community/feed" className={dropdownLinkClass}>
                     Лента
+                  </Link>
+                  <Link to="/community/voice" className={dropdownLinkClass}>
+                    Голосовой чат
                   </Link>
                 </div>
               </div>
@@ -320,63 +305,41 @@ export default function Header({
                     ?.removeAttribute("open");
               }}
             >
-              <Link
-                className={mobileMenuLinkClass}
-                to="/"
-              >
+              <Link className={mobileMenuLinkClass} to="/">
                 Главная
               </Link>
-              <Link
-                className={mobileMenuLinkClass}
-                to="/scanners/1"
-              >
+              <Link className={mobileMenuLinkClass} to="/scanners/1">
                 Сканеры
               </Link>
-              <Link
-                className={mobileMenuLinkClass}
-                to="/charts"
-              >
+              <Link className={mobileMenuLinkClass} to="/charts">
                 Графики
               </Link>
-            <Link
-                className={mobileMenuLinkClass}
-                to="/arbitrage"
-              >
+              <Link className={mobileMenuLinkClass} to="/arbitrage">
                 Арбитраж
               </Link>
-              <Link
-                className={mobileMenuLinkClass}
-                to="/backtest"
-              >
+              <Link className={mobileMenuLinkClass} to="/backtest">
                 Тест стратегии
               </Link>
-              <Link
-                className={mobileMenuLinkClass}
-                to="/replay"
-              >
+              <Link className={mobileMenuLinkClass} to="/replay">
                 Бэктест
               </Link>
               {hasPlan(user?.plan, "standard") ? (
-                <Link
-                  className={mobileMenuLinkClass}
-                  to="/news"
-                >
+                <Link className={mobileMenuLinkClass} to="/news">
                   Новости
                 </Link>
               ) : null}
               {hasPlan(user?.plan, "pro") ? (
-                <Link
-                  className={mobileMenuLinkClass}
-                  to="/community"
-                >
+                <Link className={mobileMenuLinkClass} to="/community">
                   Комьюнити
                 </Link>
               ) : null}
+              {hasPlan(user?.plan, "pro") ? (
+                <Link className={mobileMenuLinkClass} to="/community/voice">
+                  Голосовой чат
+                </Link>
+              ) : null}
               {user?.isAdmin ? (
-                <Link
-                  className={mobileMenuLinkClass}
-                  to="/admin"
-                >
+                <Link className={mobileMenuLinkClass} to="/admin">
                   Админка
                 </Link>
               ) : null}
@@ -403,12 +366,22 @@ export default function Header({
                 aria-pressed={theme === value}
                 onClick={(event) => {
                   const rect = event.currentTarget.getBoundingClientRect();
-                  setTheme(value, { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+                  setTheme(value, {
+                    x: rect.x + rect.width / 2,
+                    y: rect.y + rect.height / 2,
+                  });
                 }}
                 className="relative z-10 flex h-full items-center justify-center rounded-sm transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring aria-pressed:text-foreground"
               >
-                {Icon ? <Icon aria-hidden="true" size={14} strokeWidth={1.8} /> : (
-                  <span aria-hidden="true" className="font-sans text-sm font-black leading-none tracking-tight">SL</span>
+                {Icon ? (
+                  <Icon aria-hidden="true" size={14} strokeWidth={1.8} />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="font-sans text-sm font-black leading-none tracking-tight"
+                  >
+                    SL
+                  </span>
                 )}
               </button>
             ))}

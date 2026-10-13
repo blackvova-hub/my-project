@@ -143,9 +143,9 @@ var knowledgeCatalog = []knowledgeDocument{
 		ID:     "availability",
 		Title:  "Community и Exchange",
 		File:   "availability.md",
-		Routes: []string{"/community", "/exchange"},
+		Routes: []string{"/community", "/community/voice", "/exchange"},
 		Keywords: []string{
-			"community", "комьюнити", "сообществ", "канал", "лента сообщества", "exchange", "биржа стратег", "маркетплейс",
+			"community", "комьюнити", "сообществ", "голосов", "микрофон", "livekit", "канал", "лента сообщества", "exchange", "биржа стратег", "маркетплейс",
 		},
 	},
 	{

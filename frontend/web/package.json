@@ -34,6 +34,7 @@
     "cn": "^0.4.0",
     "framer-motion": "^12.23.26",
     "lightweight-charts": "^5.2.1",
+    "livekit-client": "2.22.4",
     "lucide-react": "^1.48.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

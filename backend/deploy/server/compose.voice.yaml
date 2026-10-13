@@ -1,0 +1,61 @@
+# Self-hosted LAN voice. Loaded by compose.sh when installed on server01.
+services:
+  frontend:
+    volumes:
+      - type: bind
+        source: /var/lib/shortlong/voice/caddy-data/caddy/pki/authorities/local/root.crt
+        target: /usr/share/nginx/html/voice-local-ca.crt
+        read_only: true
+        bind:
+          create_host_path: false
+  backend:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      LIVEKIT_URL: "http://host.docker.internal:7880"
+      LIVEKIT_PUBLIC_URL: "wss://${SERVER_LAN_IP:-192.168.0.130}/livekit"
+      VOICE_ALLOWED_ORIGIN: "https://${SERVER_LAN_IP:-192.168.0.130}"
+      VOICE_CATALOGUE_CACHE_FILE: "/var/cache/shortlong-voice/pairs.json"
+      LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:?Generate LiveKit credentials with setup-voice.py}"
+      LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:?Generate LiveKit credentials with setup-voice.py}"
+    volumes:
+      - type: bind
+        source: /var/lib/shortlong/voice/catalogue
+        target: /var/cache/shortlong-voice
+        bind:
+          create_host_path: false
+  livekit:
+    image: livekit/livekit-server:v1.13.9
+    container_name: shortlong_livekit
+    network_mode: host
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - /var/lib/shortlong/voice/livekit.yaml:/etc/livekit.yaml:ro
+    restart: unless-stopped
+    cpus: "2.0"
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+  voice_https:
+    image: caddy:2.11.2-alpine
+    container_name: shortlong_voice_https
+    ports:
+      - "${SERVER_LAN_IP:-192.168.0.130}:443:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SERVER_LAN_IP: "${SERVER_LAN_IP:-192.168.0.130}"
+    volumes:
+      - ./deploy/server/voice.Caddyfile:/etc/caddy/Caddyfile:ro
+      - /var/lib/shortlong/voice/caddy-data:/data
+      - /var/lib/shortlong/voice/caddy-config:/config
+    restart: unless-stopped
+    cpus: "0.5"
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    depends_on:
+      - frontend
+      - livekit
