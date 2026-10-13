@@ -160,7 +160,7 @@ export function MarketChart({
             ? "Прямой поток"
             : data.status === "connecting"
               ? "Подключаемся…"
-              : "Поток переподключается · REST 30с"}
+              : "Поток переподключается · REST 1с"}
           {data.updated
             ? ` · ${new Date(data.updated).toLocaleTimeString("ru-RU", { timeZone: "UTC" })} UTC`
             : ""}

@@ -60,10 +60,13 @@ export function useMarketData(
     exhausted.current = false;
     let disposed = false,
       primed = false,
+      historyFailed = false,
+      retryingHistory = false,
       historyError = "",
       stop = () => {},
       queued: Candle[] = [];
     const bootstrap = new Map<number, Candle>();
+    const streamTail = new Map<number, Candle>();
     setState({
       key,
       candles: [],
@@ -98,6 +101,10 @@ export function useMarketData(
       instrument,
       interval,
       (c) => {
+        streamTail.set(c.time, c);
+        if (streamTail.size > 2)
+          streamTail.delete(Math.min(...streamTail.keys()));
+        if (primed) historyError = "";
         queued.push(c);
         if (raf === null)
           raf = requestAnimationFrame(() => {
@@ -121,6 +128,7 @@ export function useMarketData(
       .catch((error) => {
         if (disposed) return;
         primed = true;
+        historyFailed = true;
         historyError = error?.message ?? "История недоступна";
         put([...bootstrap.values()]);
         bootstrap.clear();
@@ -132,22 +140,33 @@ export function useMarketData(
       .catch(() => {
         /* Actual candle precision remains the fallback. */
       });
-    const timer = setInterval(() => {
-      if (document.visibilityState !== "visible") return;
+    const recovery = setInterval(() => {
+      if (
+        !historyFailed ||
+        retryingHistory ||
+        document.visibilityState !== "visible"
+      )
+        return;
+      retryingHistory = true;
       void fetchMarketCandles(instrument, interval, abort.signal)
         .then((rows) => {
+          if (disposed) return;
+          historyFailed = false;
           historyError = "";
-          put(rows);
+          put([...rows, ...streamTail.values()]);
         })
         .catch(() => {
-          if (!disposed) setState((s) => ({ ...s, status: "offline" }));
+          /* Live snapshots keep updating while history is unavailable. */
+        })
+        .finally(() => {
+          retryingHistory = false;
         });
     }, 30000);
     return () => {
       disposed = true;
       abort.abort();
       stop();
-      clearInterval(timer);
+      clearInterval(recovery);
       if (raf !== null) cancelAnimationFrame(raf);
     };
     // Primitive identity prevents reconnecting on parent renders.

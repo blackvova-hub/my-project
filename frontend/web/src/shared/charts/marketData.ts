@@ -1,5 +1,6 @@
 import type { PrimaryExchange } from "../exchange/primaryExchange";
 import { normalizeCandles, type Candle } from "./engine";
+import { startLiveCandlePolling } from "./liveCandlePolling";
 import type {
   PerpPriceFormat,
   PerpStreamStatus,
@@ -118,11 +119,12 @@ export async function fetchMarketCandles(
   interval: ChartInterval,
   signal: AbortSignal,
   before?: number,
+  limit = 1000,
 ): Promise<Candle[]> {
   const query = new URLSearchParams({
     symbol: i.symbol,
     interval: i.exchange === "bybit" ? bybitIntervals[interval] : interval,
-    limit: "1000",
+    limit: String(Math.max(1, Math.min(1000, Math.floor(limit)))),
   });
   if (before)
     query.set(
@@ -284,18 +286,33 @@ export function subscribeMarketCandles(
     shared = { listeners: new Set(), stop: () => {}, status: "connecting" };
     sharedStreams.set(key, shared);
     const feed = shared;
-    feed.stop = connectMarketCandles(
+    const statusChanged = (status: PerpStreamStatus) => {
+      if (feed.status === status) return;
+      feed.status = status;
+      for (const target of feed.listeners) target.status(status);
+    };
+    const polling = startLiveCandlePolling(
+      (signal, limit) =>
+        fetchMarketCandles(i, interval, signal, undefined, limit),
+      CHART_INTERVALS.find((v) => v.value === interval)!.seconds,
+      (rows) => {
+        for (const c of rows) {
+          if (!feed.last || c.time >= feed.last.time) feed.last = c;
+          for (const target of feed.listeners) target.candle(c);
+        }
+      },
+      statusChanged,
+    );
+    const stopSocket = connectMarketCandles(
       i,
       interval,
-      (c) => {
-        feed.last = c;
-        for (const target of feed.listeners) target.candle(c);
-      },
-      (status) => {
-        feed.status = status;
-        for (const target of feed.listeners) target.status(status);
-      },
+      polling.websocket,
+      statusChanged,
     );
+    feed.stop = () => {
+      polling.stop();
+      stopSocket();
+    };
   }
   shared.listeners.add(listener);
   onStatus(shared.status);

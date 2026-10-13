@@ -31,6 +31,8 @@ import {
   isClassicIndicatorId,
   type IndicatorId,
 } from "../market/indicatorTypes";
+import { formatVolume, validVolumeRange } from "./volumeScale";
+import { restorePriceRange } from "./priceScaleRange";
 import { readChartTheme } from "../market/chartTheme";
 import { useTheme } from "../theme/ThemeContext";
 import { timestamp, type Candle } from "./engine";
@@ -116,6 +118,7 @@ export function ChartStudies({
   const series = useRef(new Map<string, Series>()),
     panes = useRef(new Map<string, IPaneApi<Time>>()),
     priceLines = useRef(new Map<string, IPriceLine[]>());
+  const restoringScales = useRef(new Set<string>());
   const [groups, setGroups] = useState<Group[]>([]),
     [geometry, setGeometry] = useState<
       Record<string, { top: number; height: number }>
@@ -123,9 +126,9 @@ export function ChartStudies({
     [hoverTime, setHoverTime] = useState<number | null>(null),
     [inspector, setInspector] = useState<string | null>(null),
     [error, setError] = useState("");
-  const live = useRef({ groups, layout, onLayout, settings });
+  const live = useRef({ groups, layout, onLayout, settings, candles });
   useEffect(() => {
-    live.current = { groups, layout, onLayout, settings };
+    live.current = { groups, layout, onLayout, settings, candles };
   });
   const measure = useCallback(() => {
     if (api.disposed) return;
@@ -157,6 +160,7 @@ export function ChartStudies({
   );
   useEffect(() => {
     series.current.clear();
+    restoringScales.current.clear();
     panes.current.clear();
     priceLines.current.clear();
     const chart = api.chart;
@@ -184,14 +188,24 @@ export function ChartStudies({
           scales = { ...live.current.layout.scales };
         for (const [key, pane] of panes.current) {
           heights[key] = Math.round(pane.getHeight());
-          const priceScale = pane.priceScale("right"),
-            auto = priceScale.options().autoScale;
+          if (restoringScales.current.has(key)) continue;
+          const priceScale = pane.priceScale("right");
+          let auto = priceScale.options().autoScale;
+          const range = auto ? undefined : priceScale.getVisibleRange();
+          if (
+            key === "volume" &&
+            !validVolumeRange(
+              range,
+              Math.max(0, ...live.current.candles.map((c) => c.volume)),
+            )
+          ) {
+            priceScale.applyOptions({ autoScale: true });
+            auto = true;
+          }
           scales[key] = {
             ...scales[key],
             auto,
-            range: auto
-              ? undefined
-              : (priceScale.getVisibleRange() ?? undefined),
+            range: auto ? undefined : (range ?? undefined),
           };
         }
         heights.price = Math.round(chart.panes()[0]?.getHeight() ?? 300);
@@ -397,15 +411,18 @@ export function ChartStudies({
               pointMarkersVisible: c.pointMarkersVisible ?? false,
               priceLineVisible: false,
               lastValueVisible: g.placement === "pane",
-              priceFormat: g.percent
-                ? {
-                    type: "custom",
-                    minMove: 0.0001,
-                    formatter: (v: number) => v.toFixed(4) + "%",
-                  }
-                : g.placement === "pane"
-                  ? { type: "volume" }
-                  : mainFormat,
+              priceFormat:
+                g.key === "volume"
+                  ? { type: "custom", minMove: 0.01, formatter: formatVolume }
+                  : g.percent
+                    ? {
+                        type: "custom",
+                        minMove: 0.0001,
+                        formatter: (v: number) => v.toFixed(4) + "%",
+                      }
+                    : g.placement === "pane"
+                      ? { type: "volume" }
+                      : mainFormat,
             } as never);
             s.setData(
               c.data.map((p) => ({
@@ -481,6 +498,7 @@ export function ChartStudies({
     .filter((g) => g.placement === "pane")
     .map((g) => g.key)
     .join("|");
+  const dataReady = candles.length > 0;
   useEffect(() => {
     if (api.disposed) return;
     const keys = paneKeys ? paneKeys.split("|") : [];
@@ -489,6 +507,11 @@ export function ChartStudies({
       ...keys.filter((k) => !layout.order.includes(k)),
     ];
     const main = api.chart.panes()[0];
+    const restores: {
+      key: string;
+      pane: IPaneApi<Time>;
+      range: { from: number; to: number };
+    }[] = [];
     main?.setStretchFactor(
       layout.maximized
         ? layout.maximized === "price"
@@ -511,17 +534,69 @@ export function ChartStudies({
             : (layout.heights[key] ?? 100),
       );
       const scale = layout.scales[key];
+      const invalidVolume =
+        key === "volume" &&
+        dataReady &&
+        !validVolumeRange(
+          scale?.range,
+          Math.max(0, ...live.current.candles.map((c) => c.volume)),
+        );
+      const priceScale = pane.priceScale("right");
+      const nextMode = scale?.log
+        ? PriceScaleMode.Logarithmic
+        : PriceScaleMode.Normal;
+      if (priceScale.options().mode !== nextMode) {
+        // Recalculate in the new coordinate system before freezing a manual
+        // range; an old linear range must not be read as logarithmic values.
+        priceScale.applyOptions({ mode: nextMode, autoScale: true });
+        priceScale.getVisibleRange();
+      }
       pane.priceScale("right").applyOptions({
-        autoScale: scale?.auto !== false,
+        autoScale: invalidVolume || scale?.auto !== false || !!scale.range,
         invertScale: scale?.inverted === true,
         mode: scale?.log ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
       });
-      if (scale?.auto === false && scale.range)
-        pane.priceScale("right").setVisibleRange(scale.range);
+      if (!invalidVolume && scale?.auto === false && scale.range) {
+        if (dataReady) restores.push({ key, pane, range: scale.range });
+        restoringScales.current.add(key);
+      } else {
+        restoringScales.current.delete(key);
+      }
+      if (invalidVolume)
+        live.current.onLayout?.({
+          ...layout,
+          scales: {
+            ...layout.scales,
+            [key]: { ...scale, auto: true, range: undefined },
+          },
+        });
     }
-    const frame = requestAnimationFrame(measure);
-    return () => cancelAnimationFrame(frame);
-  }, [api, paneKeys, layout, measure, settings]);
+    // New panes receive their first native price range on the render frame.
+    // Restoring before then mistakes a not-yet-ready logarithmic scale for a
+    // corrupt one and discards otherwise valid saved manual ranges.
+    const frame = requestAnimationFrame(() => {
+      if (api.disposed) return;
+      for (const { key, pane, range } of restores) {
+        if (panes.current.get(key) !== pane) continue;
+        if (!restorePriceRange(pane.priceScale("right"), range)) {
+          const current = live.current.layout;
+          live.current.onLayout?.({
+            ...current,
+            scales: {
+              ...current.scales,
+              [key]: { ...current.scales[key], auto: true, range: undefined },
+            },
+          });
+        }
+        restoringScales.current.delete(key);
+      }
+      measure();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      for (const { key } of restores) restoringScales.current.delete(key);
+    };
+  }, [api, paneKeys, layout, measure, settings, dataReady]);
   const points = useMemo(
     () =>
       new Map(

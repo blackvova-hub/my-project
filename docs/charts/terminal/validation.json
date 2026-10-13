@@ -4,7 +4,7 @@
   "frontend": {
     "typescript": "passed",
     "eslint": "passed",
-    "unitTests": 86,
+    "unitTests": 92,
     "failures": 0,
     "productionBuild": "passed"
   },
@@ -15,7 +15,7 @@
     "packagesTested": 14
   },
   "browser": {
-    "checks": 16,
+    "checks": 19,
     "errors": 0,
     "marketSources": [
       "fapi.binance.com"
@@ -44,5 +44,15 @@
       844
     ]
   ],
-  "providerLayers": "not configured; server adapter available"
+  "providerLayers": "not configured; server adapter available",
+  "liveCandleFixes": {
+    "refreshMs": 1000,
+    "measuredRequestIntervalsMs": [
+      1000,
+      1000,
+      1000,
+      1000
+    ],
+    "volumeScaleRestored": true
+  }
 }

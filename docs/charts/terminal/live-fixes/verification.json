@@ -1,0 +1,18 @@
+{
+  "checks": [
+    "corrupt saved volume range resets to real-data autoscale",
+    "real BTC candles refresh about once per second with WebSocket blocked",
+    "manual logarithmic volume scale stays finite through drag and reload"
+  ],
+  "errors": [],
+  "requestIntervalsMs": [
+    1000,
+    1000,
+    1000,
+    1000
+  ],
+  "completedSnapshots": 8,
+  "websocket": "blocked intentionally",
+  "source": "real fapi.binance.com",
+  "cloudPreferences": "read only"
+}

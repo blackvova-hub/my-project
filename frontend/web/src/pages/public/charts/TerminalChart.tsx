@@ -14,6 +14,7 @@ import {
   type TimeViewport,
 } from "../../../shared/charts/navigation";
 import { timestamp, type Candle } from "../../../shared/charts/engine";
+import { restorePriceRange } from "../../../shared/charts/priceScaleRange";
 import type { DrawingRuntime } from "../../../shared/charts/drawings/DrawingEditor";
 import type { ChartWindow, Comparison } from "./workspace";
 
@@ -104,7 +105,7 @@ export const TerminalChart = memo(function TerminalChart({
         if (range) api.chart.timeScale().setVisibleLogicalRange(range);
       }
       if (!w.autoScale && w.priceView)
-        api.chart.priceScale("right").setVisibleRange(w.priceView);
+        restorePriceRange(api.chart.priceScale("right"), w.priceView);
     });
     return () => cancelAnimationFrame(frame);
   }, [
@@ -296,7 +297,7 @@ export const TerminalChart = memo(function TerminalChart({
             ? "Поток"
             : data.status === "connecting"
               ? "Подключение…"
-              : "Переподключение · REST 30с"}
+              : "Переподключение · REST 1с"}
           {data.error && (
             <button aria-label="Повторить загрузку свечей" onClick={data.retry}>
               Повторить

@@ -285,18 +285,21 @@ export function ChartSurface({
       leftPriceScale: { borderColor: t.grid },
       rightPriceScale: {
         borderColor: t.grid,
-        autoScale,
-        mode: log
-          ? PriceScaleMode.Logarithmic
-          : percent
-            ? PriceScaleMode.Percentage
-            : PriceScaleMode.Normal,
       },
       timeScale: { borderColor: t.grid },
       crosshair: {
         vertLine: { color: t.crosshair, labelBackgroundColor: t.label },
         horzLine: { color: t.crosshair, labelBackgroundColor: t.label },
       },
+    });
+    // Main-price controls must not change volume/oscillator pane modes.
+    api.chart.priceScale("right").applyOptions({
+      autoScale,
+      mode: log
+        ? PriceScaleMode.Logarithmic
+        : percent
+          ? PriceScaleMode.Percentage
+          : PriceScaleMode.Normal,
     });
     api.series.applyOptions({
       upColor: t.up,
