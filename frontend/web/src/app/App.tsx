@@ -29,6 +29,7 @@ const ScannersPageThree = lazy(
   () => import("../pages/public/scanners/ScannersPageThree"),
 );
 const NewsPage = lazy(() => import("../pages/public/news/NewsPage"));
+const NewsMacroPage = lazy(() => import("../pages/public/news-macro/NewsMacroPage"));
 const ChartsPage = lazy(() => import("../pages/public/charts/ChartsPage"));
 const CommunityPage = lazy(
   () => import("../pages/public/community/CommunityPage"),
@@ -68,7 +69,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuth) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search + location.hash }} />;
   }
 
   return children;
@@ -87,7 +88,7 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search + location.hash }} />;
   }
 
   if (DEV_AUTH_BYPASS) {
@@ -174,7 +175,7 @@ function RequirePlan({
   }
 
   if (!isAuth) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search + location.hash }} />;
   }
 
   if (!hasPlan(user?.plan, minPlan)) {
@@ -322,7 +323,11 @@ export default function App() {
                 </RequirePlan>
               }
             />
-            <Route path="/news" element={<NewsPage />} />
+            <Route path="/news" element={<NewsMacroPage />} />
+            <Route path="/news/live" element={<NewsMacroPage />} />
+            <Route path="/news/calendar" element={<NewsMacroPage />} />
+            <Route path="/news/macro" element={<NewsMacroPage />} />
+            <Route path="/news/intelligence" element={<NewsMacroPage />} />
             <Route path="/news/:id" element={<NewsPage />} />
           </Route>
 

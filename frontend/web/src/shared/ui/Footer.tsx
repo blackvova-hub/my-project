@@ -26,10 +26,10 @@ export function Footer() {
                 </Link>
 
                 <Link
-                  to="/#news"
+                  to="/news"
                   className="rounded-full border border-border bg-secondary px-7 py-3 text-sm font-semibold text-secondary-foreground transition hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >
-                  Новости
+                  News & Macro
                 </Link>
               </div>
             ) : null}

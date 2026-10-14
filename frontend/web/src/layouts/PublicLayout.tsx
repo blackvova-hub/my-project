@@ -68,6 +68,7 @@ export function PublicLayout() {
   const { isAuth, user } = useAuth();
   const location = useLocation();
   const isAccountPage = location.pathname.startsWith("/account");
+  const isNewsMacroPage = location.pathname === "/news" || ["/news/live", "/news/calendar", "/news/macro", "/news/intelligence"].includes(location.pathname);
   const isReplayPage = location.pathname.startsWith("/replay") || location.pathname.startsWith("/charts");
   const isBacktestPage = location.pathname.startsWith("/backtest") || location.pathname.startsWith("/replay") || location.pathname.startsWith("/charts");
   const [showMobileNotice, setShowMobileNotice] = useState(false);
@@ -96,7 +97,7 @@ export function PublicLayout() {
   };
 
   useEffect(() => {
-    if (isAccountPage || isBacktestPage) return;
+    if (isAccountPage || isBacktestPage || isNewsMacroPage) return;
     try {
       if (
         localStorage.getItem(MOBILE_NOTICE_SHOWN_KEY) === "1" ||
@@ -122,7 +123,7 @@ export function PublicLayout() {
     window.addEventListener("resize", check);
     check();
     return () => window.removeEventListener("resize", check);
-  }, [isAccountPage, isBacktestPage]);
+  }, [isAccountPage, isBacktestPage, isNewsMacroPage]);
 
   return (
     <ToastProvider>
@@ -137,10 +138,10 @@ export function PublicLayout() {
           <Header
             staticPosition={isBacktestPage}
           />
-          <main data-reveal-scope={isBacktestPage ? undefined : "deep"}>
+          <main data-reveal-scope={isBacktestPage || isNewsMacroPage ? undefined : "deep"}>
             <Outlet />
           </main>
-          {isAuth && !isBacktestPage && hasPlan(user?.plan, "standard") ? (
+          {isAuth && !isBacktestPage && !isNewsMacroPage && hasPlan(user?.plan, "standard") ? (
             <Suspense fallback={null}>
               <AiAssistantWidget />
             </Suspense>
@@ -148,7 +149,7 @@ export function PublicLayout() {
           {!isReplayPage ? <Footer /> : null}
         </div>
 
-        {showMobileNotice && !isAccountPage && !isBacktestPage ? (
+        {showMobileNotice && !isAccountPage && !isBacktestPage && !isNewsMacroPage ? (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-scrim px-6 py-10">
             <div className="w-full max-w-sm rounded-2xl border border-border bg-popover p-5 text-center text-popover-foreground shadow-lg">
               <div className="text-lg font-semibold text-popover-foreground">

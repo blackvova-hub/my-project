@@ -1,7 +1,8 @@
-go 1.24.0
+go 1.26.8
 
 use (
 	./api
+	./arbitrage
 	./backtest
 	./news/collector
 	./scanners/market-data

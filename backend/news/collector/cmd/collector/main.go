@@ -1495,7 +1495,11 @@ func existsURLHash(ctx context.Context, pool *pgxpool.Pool, hash string) (bool, 
 		return false, nil
 	}
 	var exists bool
-	err := pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM news_items WHERE url_hash = $1)", hash).Scan(&exists)
+	// Terminal ingestion is read-only with regard to publication eligibility.
+	// Its cached row must still pass this collector's normal moderation/translation
+	// pipeline. JSON extraction keeps this query compatible before migration 072.
+	err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM news_items WHERE url_hash = $1
+		AND (publication_eligible = TRUE OR COALESCE(to_jsonb(news_items)->>'terminal_collected', 'false') <> 'true'))`, hash).Scan(&exists)
 	return exists, err
 }
 
@@ -1523,6 +1527,13 @@ func insertNewsItemIfUnique(ctx context.Context, pool *pgxpool.Pool, item NewsIt
 		return false, err
 	}
 	if exists {
+		claimed, err := claimTerminalNewsItem(ctx, tx, item)
+		if err != nil {
+			return false, err
+		}
+		if claimed {
+			return true, tx.Commit(ctx)
+		}
 		return false, nil
 	}
 

@@ -29,6 +29,7 @@ import (
 	"backend/internal/httpapi/backtest"
 	"backend/internal/httpapi/chartconfig"
 	"backend/internal/httpapi/community"
+	macroapi "backend/internal/httpapi/macro"
 	"backend/internal/httpapi/market"
 	"backend/internal/httpapi/news"
 	"backend/internal/httpapi/scanner"
@@ -196,6 +197,11 @@ func main() {
 	go voice.Run(voiceContext)
 	admin := adminapi.New(authStore, pool, logBuffer)
 	news := newsapi.New(pool)
+	newsMacro := macroapi.New(pool)
+	newsMacroContext, stopNewsMacro := context.WithCancel(context.Background())
+	defer stopNewsMacro()
+	go newsMacro.Run(newsMacroContext)
+	go news.TerminalRun(newsMacroContext)
 	var redisClient *redis.Client
 	if strings.TrimSpace(cfg.RedisAddr) != "" {
 		candidate := redis.NewClient(&redis.Options{
@@ -239,6 +245,8 @@ func main() {
 		voice.Routes(r)
 		admin.Routes(r)
 		news.Routes(r)
+		news.TerminalRoutes(r)
+		newsMacro.Routes(r)
 		market.Routes(r)
 		ai.Routes(r)
 	})
@@ -255,6 +263,8 @@ func main() {
 		voice.Routes(r)
 		admin.Routes(r)
 		news.Routes(r)
+		news.TerminalRoutes(r)
+		newsMacro.Routes(r)
 		market.Routes(r)
 		ai.Routes(r)
 	})

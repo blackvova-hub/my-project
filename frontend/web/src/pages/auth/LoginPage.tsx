@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../../shared/auth/AuthContext";
 import { useToast } from "../../shared/ui/ToastProvider";
 import TurnstileField from "../../shared/ui/TurnstileField";
+import { loginDestination } from "../../shared/auth/loginDestination";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const destination = loginDestination((location.state as { from?: unknown } | null)?.from ?? new URLSearchParams(location.search).get("next"));
   const { login, resendVerification, verifyTwoFALogin } = useAuth();
   const toast = useToast();
 
@@ -86,7 +89,7 @@ export default function LoginPage() {
         setInfo("Мы отправили код 2FA на email. Введи его ниже.");
         return;
       }
-      navigate("/account");
+      navigate(destination, { replace: true });
     } catch (err) {
       const code = err instanceof Error ? err.message : "login_failed";
       toast.error(mapError(code));
@@ -114,7 +117,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await verifyTwoFALogin(email, twoFACode.trim(), twoFAChallenge);
-      navigate("/account");
+      navigate(destination, { replace: true });
     } catch (err) {
       const code = err instanceof Error ? err.message : "verify_failed";
       toast.error(mapError(code));

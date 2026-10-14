@@ -13,7 +13,7 @@ RUN go mod download
 COPY cmd ./cmd
 
 COPY internal ./internal
-RUN CGO_ENABLED=0 GOOS=linux go build -o /bin/app ./cmd/api
+RUN GOMAXPROCS=2 CGO_ENABLED=0 GOOS=linux go build -p 2 -o /bin/app ./cmd/api
 
 FROM alpine:3.24
 WORKDIR /app

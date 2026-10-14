@@ -1,0 +1,161 @@
+{
+  "checkedAt": "2026-10-14T04:41:51.015165+00:00",
+  "newsItems": 53,
+  "newsStorage": "postgres",
+  "newsSources": [
+    {
+      "id": "ethereum_foundation",
+      "status": "ok",
+      "items": 3
+    },
+    {
+      "id": "bitcoin_core",
+      "status": "ok",
+      "items": 0
+    },
+    {
+      "id": "federal_reserve",
+      "status": "ok",
+      "items": 18
+    },
+    {
+      "id": "ecb",
+      "status": "ok",
+      "items": 15
+    },
+    {
+      "id": "bls",
+      "status": "ok",
+      "items": 1
+    },
+    {
+      "id": "sec",
+      "status": "ok",
+      "items": 17
+    },
+    {
+      "id": "gdelt",
+      "status": "error",
+      "items": 0
+    },
+    {
+      "id": "coindesk",
+      "status": "disabled",
+      "items": 0
+    },
+    {
+      "id": "cointelegraph",
+      "status": "disabled",
+      "items": 0
+    },
+    {
+      "id": "decrypt",
+      "status": "disabled",
+      "items": 0
+    },
+    {
+      "id": "cryptoslate",
+      "status": "disabled",
+      "items": 0
+    },
+    {
+      "id": "bbc",
+      "status": "disabled",
+      "items": 0
+    }
+  ],
+  "seriesCount": 22,
+  "populatedSeries": 22,
+  "macroSources": [
+    {
+      "id": "alternative-sentiment",
+      "status": "ok",
+      "message": "Синхронизировано; дата наблюдения может отличаться от даты загрузки"
+    },
+    {
+      "id": "bea-calendar",
+      "status": "unavailable",
+      "message": "Источник не ответил за отведённое время или недоступен"
+    },
+    {
+      "id": "bls-calendar",
+      "status": "ok",
+      "message": "Синхронизировано; дата наблюдения может отличаться от даты загрузки"
+    },
+    {
+      "id": "bls-data",
+      "status": "standby",
+      "message": "Резерв не запрашивался: данные BLS доступны через FRED"
+    },
+    {
+      "id": "crypto-markets",
+      "status": "ok",
+      "message": "Синхронизировано; дата наблюдения может отличаться от даты загрузки"
+    },
+    {
+      "id": "ecb",
+      "status": "ok",
+      "message": "Синхронизировано; дата наблюдения может отличаться от даты загрузки"
+    },
+    {
+      "id": "fed-calendar",
+      "status": "ok",
+      "message": "Синхронизировано; дата наблюдения может отличаться от даты загрузки"
+    },
+    {
+      "id": "fred",
+      "status": "ok",
+      "message": "Синхронизировано; дата наблюдения может отличаться от даты загрузки"
+    },
+    {
+      "id": "licensed-markets",
+      "status": "unavailable",
+      "message": "Для S&P 500, Nasdaq, ICE DXY и золота нужен источник с разрешением на распространение котировок; значения не подставляются."
+    }
+  ],
+  "calendarMonthEvents": 12,
+  "calendarForecastNull": true,
+  "cpiPoints5y": 57,
+  "crypto": [
+    {
+      "symbol": "BTC",
+      "status": "fresh",
+      "source": "Bybit · spot"
+    },
+    {
+      "symbol": "ETH",
+      "status": "fresh",
+      "source": "Bybit · spot"
+    }
+  ],
+  "sentiment": {
+    "value": 62,
+    "source": "Alternative.me",
+    "observedAt": "2026-10-14T00:00:00Z"
+  },
+  "services": [
+    "crypto_frontend Up 2 minutes (healthy)",
+    "crypto_news_bot Up 8 minutes",
+    "crypto_backend Up 8 minutes (healthy)",
+    "shortlong_voice_https Up 15 hours",
+    "shortlong_livekit Up 15 hours",
+    "shortlong-clickhouse-1 Up 45 hours (healthy)",
+    "crypto_telegram_admin_bot Up 45 hours (healthy)",
+    "shortlong-arbitrage_engine-1 Up 45 hours (healthy)",
+    "shortlong-arbitrage_gateio-1 Up 45 hours",
+    "shortlong-arbitrage_kucoin-1 Up 45 hours",
+    "shortlong-arbitrage_binance-1 Up 45 hours",
+    "shortlong-arbitrage_bybit-1 Up 45 hours",
+    "shortlong-arbitrage_okx-1 Up 45 hours",
+    "shortlong-arbitrage_bitget-1 Up 45 hours",
+    "shortlong-market_history-1 Up 44 hours (healthy)",
+    "crypto_worker Restarting (1) 53 seconds ago",
+    "crypto_worker_slot3 Restarting (1) 54 seconds ago",
+    "shortlong-backtest_worker-1 Up 45 hours",
+    "shortlong-similarity_worker-1 Up 45 hours (healthy)",
+    "crypto_worker_slot2 Restarting (1) 52 seconds ago",
+    "crypto_postgres Up 45 hours (healthy)",
+    "crypto_redis Up 45 hours (healthy)",
+    "shortlong-qdrant-1 Up 45 hours"
+  ]
+}

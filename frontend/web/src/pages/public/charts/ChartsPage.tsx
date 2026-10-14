@@ -7,6 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import {
   Search,
   ChevronDown,
@@ -70,6 +71,7 @@ import {
   type TerminalWorkspace,
 } from "./workspace";
 import { useTerminalWorkspace } from "./useTerminalWorkspace";
+import { chartInstrumentFromSearch } from "./deepLink";
 import "../../../shared/charts/charts.css";
 import "./terminal.css";
 
@@ -120,6 +122,12 @@ function Terminal({
   const { workspace, update, save, status, conflict, loadRemote } =
       useTerminalWorkspace(owner, authenticated),
     { theme } = useTheme();
+  const location = useLocation();
+  useEffect(() => {
+    const instrument = chartInstrumentFromSearch(location.search);
+    if (!instrument) return;
+    update(current => patchWindow(current, { ...instrument, view: undefined, priceView: undefined, follow: true, autoScale: true }));
+  }, [location.search, update]);
   const [dialog, setDialog] = useState<Dialog>(null),
     [search, setSearch] = useState(""),
     [tab, setTab] = useState("market"),

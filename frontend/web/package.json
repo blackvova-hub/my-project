@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:news-macro": "node --experimental-strip-types --test tests/news-macro.test.mjs tests/chart-deep-link.test.mjs tests/release-reaction.test.mjs",
+    "test:news-macro:live": "node tests/news-macro-live.mjs",
     "test:charts": "node --experimental-strip-types --test tests/charts.test.mjs",
     "test:charts:live": "node tests/charts-live.mjs",
     "test:terminal": "node --experimental-strip-types --test tests/terminal-workspace.test.mjs",

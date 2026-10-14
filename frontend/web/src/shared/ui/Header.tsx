@@ -128,7 +128,7 @@ export default function Header({
         </Link>
 
         {!isAuth ? (
-          <nav className="app-header-nav hidden items-center gap-6 lg:flex">
+          <nav className="app-header-nav hidden items-center gap-6 xl:flex">
             <Link
               to="/#top"
               aria-current={isAnchorActive("#top") ? "page" : undefined}
@@ -169,6 +169,9 @@ export default function Header({
             >
               Бета
             </Link>
+            <NavLink to="/news" className={({ isActive }) => linkClass(isActive)}>
+              News & Macro
+            </NavLink>
           </nav>
         ) : (
           <nav className="app-header-nav hidden items-center gap-4 xl:flex">
@@ -246,14 +249,9 @@ export default function Header({
             >
               Бэктест
             </NavLink>
-            {hasPlan(user?.plan, "standard") ? (
-              <NavLink
-                to="/news"
-                className={({ isActive }) => linkClass(isActive)}
-              >
-                Новости
-              </NavLink>
-            ) : null}
+            <NavLink to="/news" className={({ isActive }) => linkClass(isActive)}>
+              News & Macro
+            </NavLink>
             {hasPlan(user?.plan, "pro") ? (
               <div className="relative group">
                 <NavLink
@@ -323,11 +321,9 @@ export default function Header({
               <Link className={mobileMenuLinkClass} to="/replay">
                 Бэктест
               </Link>
-              {hasPlan(user?.plan, "standard") ? (
-                <Link className={mobileMenuLinkClass} to="/news">
-                  Новости
-                </Link>
-              ) : null}
+              <Link className={mobileMenuLinkClass} to="/news">
+                News & Macro
+              </Link>
               {hasPlan(user?.plan, "pro") ? (
                 <Link className={mobileMenuLinkClass} to="/community">
                   Комьюнити
@@ -346,6 +342,7 @@ export default function Header({
             </nav>
           </details>
         ) : null}
+        {!isAuth ? <NavLink to="/news" className="app-nav-link whitespace-nowrap text-sm text-muted-foreground hover:text-foreground xl:hidden">News & Macro</NavLink> : null}
         <div className="app-header-actions ml-auto flex shrink-0 items-center gap-2">
           <div
             role="group"

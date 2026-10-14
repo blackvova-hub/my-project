@@ -1,0 +1,43 @@
+{
+  "checkedAt": "2026-10-14T04:41:53.552Z",
+  "base": "http://192.168.0.130",
+  "checks": [
+    "Password login preserves requested terminal page",
+    "Live news filters, search, reading and persistent bookmarks",
+    "Calendar periods, timezone, filters, official history and ICS export",
+    "Real macro chart, YoY, comparison and raw CSV export",
+    "Three themes and responsive routes preserve page bounds",
+    "Unavailable API shows retry and recovers without fabricated data",
+    "Market widget opens existing spot chart with the correct symbol"
+  ],
+  "layouts": [
+    {
+      "theme": "dark",
+      "desktop": {
+        "x": 48,
+        "y": 71,
+        "width": 1440,
+        "height": 1965.703125
+      }
+    },
+    {
+      "theme": "light",
+      "desktop": {
+        "x": 48,
+        "y": 71,
+        "width": 1440,
+        "height": 1965.703125
+      }
+    },
+    {
+      "theme": "green",
+      "desktop": {
+        "x": 48,
+        "y": 71,
+        "width": 1440,
+        "height": 1965.703125
+      }
+    }
+  ],
+  "pageErrors": []
+}

@@ -20,6 +20,7 @@
 # =========================
 tmp/
 .codex/
+.codex-remote-attachments/
 .playwright-cli/
 **/.playwright-cli/
 
