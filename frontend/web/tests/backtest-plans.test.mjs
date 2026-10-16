@@ -5,7 +5,8 @@ import { backtestLimits, conditionUsage, canAdd } from "../src/pages/public/back
 import { makeRule } from "../src/pages/public/backtest/rules.ts";
 
 test("symbol limits and unknown-plan fallback", () => {
-  for (const [plan, count] of [["free", 1], [undefined, 1], ["unknown", 1], ["standard", 5], ["standart", 5], [" PRO ", 10]]) {
+  for (const [plan, count] of [["free", 6], [undefined, 6], ["unknown", 6], ["standard", 10], ["standart", 10], [" PRO ", 15]]) {
+    assert.equal(backtestLimits(plan).maxSymbols, count);
     const r = defaultRequest();
     r.symbols = Array.from({ length: count }, (_, i) => `COIN${i}USDT`);
     assert.equal(validateRequest(r, plan), null);

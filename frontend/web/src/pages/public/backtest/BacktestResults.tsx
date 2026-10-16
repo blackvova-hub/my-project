@@ -67,6 +67,21 @@ export function Methodology() {
           закрываются.
         </p>
         <p>
+          Новые тесты используют минутные свечи; период индикатора задаётся в
+          минутных свечах, окно условия — в часах. Рост цены за окно — максимальный
+          рост от более раннего минимума к последующему максимуму: 100 → 150 → 120
+          даёт рост 50%. Снижение считается от более раннего максимума к
+          последующему минимуму; для изменения в любую сторону берётся большее
+          из этих двух значений.
+          Порядок экстремумов внутри минуты не предполагается.
+        </p>
+        <p>
+          Цена, объём и индикаторы по свечам рассчитываются по минутным данным.
+          OI, CVD, дельта, объёмы рыночных покупок и продаж используют часовые
+          данные: их условия проверяются только на закрытых часовых границах,
+          между ними значения недоступны.
+        </p>
+        <p>
           Капитал общий для всех монет, одновременно открывается не более одной
           позиции на монету. Размер позиции — доля текущего капитала; комиссия
           списывается на входе и выходе. При нехватке средств объём уменьшается,
@@ -77,7 +92,8 @@ export function Methodology() {
           Futures моделируются без кредитного плеча (1×), без funding,
           ликвидаций, округления лотов и влияния объёма заявки на рынок. История
           — цены сделок Bybit, время UTC. Данные до начала периода используются
-          только для прогрева индикаторов. MACD: 12 / 26 / 9.
+          только для прогрева индикаторов. Пары с короткой историей участвуют с
+          доступной даты после прогрева индикаторов. MACD: 12 / 26 / 9.
         </p>
         <p>
           Просадка считается по капиталу на закрытии каждой свечи. Sharpe — по
@@ -154,7 +170,7 @@ export function BacktestResults({ job, userId }: { job: Job; userId: string }) {
           <h2>Результаты теста</h2>
           <p className="bt-muted">
             Bybit · {job.request.market === "spot" ? "Spot" : "Futures"} ·{" "}
-            {job.request.symbols.join(", ")} · {job.request.timeframe}{" "}
+            {job.request.symbols.join(", ")} · {job.request.timeframe === "1m" ? "1 мин" : job.request.timeframe}{" "}
             <span className="bt-date-summary">
               {new Date(job.request.from).toLocaleDateString("ru-RU", {
                 timeZone: "UTC",
@@ -188,32 +204,6 @@ export function BacktestResults({ job, userId }: { job: Job; userId: string }) {
           </div>
         ))}
       </dl>
-      {job.result.signals?.length ? (
-        <div className="bt-panel bt-signal-stats">
-          <h3>Срабатывания условий входа</h3>
-          <p className="bt-caption">
-            Число закрытых свечей, на которых совпали правила входа целиком.
-            Открытая позиция или нехватка капитала могут уменьшить число сделок.
-          </p>
-          <div>
-            {job.result.signals.map((s) => (
-              <p key={s.symbol}>
-                <strong>{s.symbol}</strong>
-                <span>
-                  {s.matchedBars.toLocaleString("ru-RU")} из{" "}
-                  {s.evaluatedBars.toLocaleString("ru-RU")} свечей
-                </span>
-              </p>
-            ))}
-          </div>
-          {job.result.signals.every((s) => s.matchedBars === 0) ? (
-            <p>
-              За выбранный период условия входа ни разу не совпали. Проверьте
-              пороги и связь И / ИЛИ.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
       <div className="bt-panel bt-chart-panel">
         <h3>Капитал</h3>
         <div className="bt-capital-value">

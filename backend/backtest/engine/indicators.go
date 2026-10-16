@@ -83,11 +83,13 @@ func rsi(v []float64, p int) []float64 {
 }
 
 type seriesCache struct {
-	close   []float64
-	values  map[bt.Operand][]float64
-	candles []bt.Candle
-	smc     map[string][]int
-	rules   map[ruleKey][]float64
+	close         []float64
+	values        map[bt.Operand][]float64
+	candles       []bt.Candle
+	smc           map[string][]int
+	rules         map[ruleKey][]float64
+	hourly        *seriesCache
+	hourlyIndices []int
 }
 
 func newCache(c []bt.Candle) *seriesCache {

@@ -22,7 +22,7 @@ export function MarketForm({
     [search, setSearch] = useState("");
   const listId = useId();
   const pairLimit = () => onLimit(limits.plan === "pro"
-    ? "В Pro можно выбрать до 10 торговых пар за один тест. Удалите одну из выбранных пар, чтобы добавить другую."
+    ? "В Pro можно выбрать до 15 торговых пар за один тест. Удалите одну из выбранных пар, чтобы добавить другую."
     : limitNotice(limits, "Дополнительные торговые пары"));
   const symbols = useQuery({
     queryKey: ["backtest", userId, "symbols", value.market],
@@ -103,7 +103,7 @@ export function MarketForm({
           />
         </div>
         <div className="bt-field bt-symbol-field">
-          <span className="bt-label">Торговые пары (до 15)</span>
+          <span className="bt-label">Торговые пары (до {limits.maxSymbols})</span>
           <div className="bt-symbols">
             {value.symbols.map((symbol) => (
               <span className="bt-symbol" key={symbol}>
@@ -146,7 +146,7 @@ export function MarketForm({
             </button>
           </div>
           <span className="bt-caption">
-            Выбрано {value.symbols.length} из 15
+            Выбрано {value.symbols.length} из {limits.maxSymbols}
           </span>
           {adding ? (
             <div className="bt-symbol-picker" id={listId}>
@@ -195,18 +195,6 @@ export function MarketForm({
               </div>
             </div>
           ) : null}
-        </div>
-        <div className="bt-field">
-          <span className="bt-label">Таймфрейм</span>
-          <Segments
-            label="Таймфрейм"
-            value={value.timeframe}
-            options={(["1h", "4h"] as const).map((v) => ({
-              value: v,
-              label: v === "1h" ? "1 час" : "4 часа",
-            }))}
-            onChange={(timeframe) => onChange({ ...value, timeframe })}
-          />
         </div>
         <div className="bt-field bt-date-field">
           <span className="bt-label">Период (UTC)</span>
@@ -266,7 +254,8 @@ export function MarketForm({
             </div>
           </div>
           <span className="bt-caption">
-            До 1 года истории · Только закрытые свечи
+            До 1 года истории · Только закрытые свечи. Пары с короткой историей
+            участвуют с доступной даты после прогрева индикаторов.
           </span>
         </div>
       </div>

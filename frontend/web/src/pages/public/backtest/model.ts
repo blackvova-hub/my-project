@@ -4,7 +4,6 @@ import {
   describeRule,
   makeRule,
   ruleError,
-  hasWindow,
   indicators,
   type IndicatorRule,
 } from "./rules.ts";
@@ -118,8 +117,7 @@ export function normalizeRequest(r: BacktestRequest): BacktestRequest {
       : { kind: "and", children: [visit(c)] };
   return {
     ...r,
-    timeframe:
-      r.timeframe === "5m" || r.timeframe === "15m" ? "1h" : r.timeframe,
+    timeframe: "1m",
     strategy: {
       ...r.strategy,
       version: 2,
@@ -213,12 +211,12 @@ export const requestSchema = z
     symbols: z
       .array(z.string().regex(/^[A-Z0-9]{2,24}USDT$/))
       .min(1)
-      .max(10)
+      .max(15)
       .refine(
         (s) => new Set(s).size === s.length,
         "Монеты не должны повторяться",
       ),
-    timeframe: z.enum(["5m", "15m", "1h", "4h"]),
+    timeframe: z.enum(["1m", "5m", "15m", "1h", "4h"]),
     from: z.string().datetime(),
     to: z.string().datetime(),
     strategy: z
@@ -312,7 +310,7 @@ export function defaultRequest(): BacktestRequest {
     exchange: "bybit",
     market: "linear",
     symbols: ["BTCUSDT"],
-    timeframe: "1h",
+    timeframe: "1m",
     from: from.toISOString(),
     to: to.toISOString(),
     strategy: {
@@ -333,8 +331,8 @@ export function defaultRequest(): BacktestRequest {
 }
 export function validateRequest(r: BacktestRequest, plan?: string | null): string | null {
   if (r.symbols.length === 0) return "Добавьте хотя бы одну торговую пару.";
-  if (r.timeframe !== "1h" && r.timeframe !== "4h")
-    return "Для теста стратегии выберите 1 час или 4 часа";
+  if (r.timeframe !== "1m")
+    return "Для нового теста используются минутные свечи. Импортируйте настройки заново.";
   const parsed = requestSchema.safeParse(r);
   if (!parsed.success)
     return parsed.error.issues[0]?.message ?? "Проверьте настройки стратегии";
@@ -351,9 +349,6 @@ export function validateRequest(r: BacktestRequest, plan?: string | null): strin
     }
     if (indicators[c.indicator]?.futures && r.market !== "linear")
       invalid = "Открытый интерес доступен только на Futures";
-    const stepHours = r.timeframe === "4h" ? 4 : 1;
-    if (hasWindow(c) && c.windowHours! % stepHours)
-      invalid = `Окно условия должно быть кратно ${stepHours} ч`;
   };
   check(r.strategy.entry);
   if (r.strategy.exit) check(r.strategy.exit);
@@ -366,12 +361,7 @@ export function validateRequest(r: BacktestRequest, plan?: string | null): strin
     earliest = new Date(now);
   earliest.setUTCHours(0, 0, 0, 0);
   earliest.setUTCFullYear(earliest.getUTCFullYear() - 1);
-  const step = {
-    "5m": 300_000,
-    "15m": 900_000,
-    "1h": 3_600_000,
-    "4h": 14_400_000,
-  }[r.timeframe];
+  const step = 60_000;
   if (
     +from < +earliest ||
     +to > Math.floor(+now / step) * step ||
@@ -396,7 +386,7 @@ export function readDraft(user: string): BacktestRequest {
 }
 export function saveDraft(user: string, value: BacktestRequest) {
   try {
-    localStorage.setItem(`backtest:draft:v1:${user}`, JSON.stringify(value));
+    localStorage.setItem(`backtest:draft:v1:${user}`, JSON.stringify(normalizeRequest(value)));
   } catch {
     /* the form remains usable without persistence */
   }
@@ -423,9 +413,17 @@ export type Trade = {
   pnlPct: number;
   reason: string;
 };
+export type SignalStats = {
+  symbol: string;
+  evaluatedBars: number;
+  matchedBars: number;
+  availableFrom?: number;
+  tradingFrom?: number;
+  skippedReason?: string;
+};
 export type BacktestResult = {
   engineVersion: string;
-  signals?: { symbol: string; evaluatedBars: number; matchedBars: number }[];
+  signals?: SignalStats[];
   metrics: {
     profitPct: number;
     maxDrawdownPct: number;

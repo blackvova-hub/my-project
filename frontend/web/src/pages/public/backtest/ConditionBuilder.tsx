@@ -91,28 +91,23 @@ function RuleFields({
   value,
   onChange,
   label,
-  timeframe,
   market,
 }: {
   value: Condition;
   onChange: (v: IndicatorRule) => void;
   label: string;
-  timeframe: string;
   market: string;
 }) {
   const reduced = useReducedMotion();
   const rule = value.kind === "indicator" ? value : null;
   const definition = rule ? indicators[rule.indicator] : null;
   const measure = definition?.measures.find((m) => m.value === rule?.measure);
-  const step = timeframe === "4h" ? 4 : 1;
   const [min, max] = rule ? thresholdBounds(rule) : [0, 1e12];
   const problem = rule
     ? (ruleError(rule) ??
-      (hasWindow(rule) && rule.windowHours! % step
-        ? `Окно должно быть кратно ${step} ч — выбран таймфрейм ${step} ч.`
-        : definition?.futures && market !== "linear"
-          ? "Открытый интерес доступен только на Futures."
-          : null))
+      (definition?.futures && market !== "linear"
+        ? "Открытый интерес доступен только на Futures."
+        : null))
     : "Это условие сохранено в прежнем формате. Выберите индикатор и задайте параметры заново.";
   return (
     <div className="bt-rule" aria-label={label}>
@@ -221,17 +216,17 @@ function RuleFields({
                   title="За какое время"
                   label={`${label}: окно в часах`}
                   value={rule.windowHours}
-                  min={step}
+                  min={1}
                   max={720}
-                  step={step}
+                  step={1}
                   unit="ч"
                   onChange={(windowHours) => onChange({ ...rule, windowHours })}
                 />
               ) : null}
               {definition.period ? (
                 <Numeric
-                  title="Период индикатора"
-                  label={`${label}: период в свечах`}
+                  title="Период, минутные свечи"
+                  label={`${label}: период в минутных свечах`}
                   value={rule.period}
                   min={2}
                   max={400}
@@ -246,25 +241,29 @@ function RuleFields({
                 className="bt-window-presets"
                 aria-label={`${label}: быстрое окно`}
               >
-                {[step, 4, 12, 24, 72, 168]
-                  .filter((h, i, a) => h % step === 0 && a.indexOf(h) === i)
-                  .map((hours) => (
-                    <button
-                      type="button"
-                      key={hours}
-                      aria-pressed={rule.windowHours === hours}
-                      onClick={() => onChange({ ...rule, windowHours: hours })}
-                    >
-                      {hours < 24 ? `${hours} ч` : `${hours / 24} д`}
-                    </button>
-                  ))}
+                {[1, 4, 12, 24, 72, 168].map((hours) => (
+                  <button
+                    type="button"
+                    key={hours}
+                    aria-pressed={rule.windowHours === hours}
+                    onClick={() => onChange({ ...rule, windowHours: hours })}
+                  >
+                    {hours < 24 ? `${hours} ч` : `${hours / 24} д`}
+                  </button>
+                ))}
               </div>
             ) : null}
             <p className="bt-rule-summary">{describeRule(rule)}</p>
             <p className="bt-caption">{measure.hint}</p>
+            {definition.hourly ? (
+              <p className="bt-caption">
+                Источник предоставляет часовые данные: условие проверяется только
+                на закрытых часовых границах. Между ними значения недоступны.
+              </p>
+            ) : null}
             {rule.period ? (
               <p className="bt-caption">
-                {rule.period} свечей × {step} ч = {rule.period * step} ч истории
+                {rule.period} минутных свечей = {rule.period} мин истории
                 для периода индикатора.
               </p>
             ) : null}
@@ -291,7 +290,6 @@ export function ConditionBuilder({
   onChange,
   depth = 0,
   label = "Условия",
-  timeframe,
   market,
   limits,
   usage,
@@ -301,7 +299,6 @@ export function ConditionBuilder({
   onChange: (v: Condition) => void;
   depth?: number;
   label?: string;
-  timeframe: string;
   market: string;
   limits: BacktestLimits;
   usage: ConditionUsage;
@@ -318,7 +315,6 @@ export function ConditionBuilder({
         value={value}
         onChange={onChange}
         label={label}
-        timeframe={timeframe}
         market={market}
       />
     );
@@ -386,7 +382,6 @@ export function ConditionBuilder({
                   onChange={(v) => update(index, v)}
                   depth={depth + 1}
                   label={`${label} ${index + 1}`}
-                  timeframe={timeframe}
                   market={market}
                   limits={limits}
                   usage={usage}

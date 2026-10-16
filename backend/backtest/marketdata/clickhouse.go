@@ -26,6 +26,17 @@ func NewClickHouse(endpoint, user, password string) *ClickHouse {
 	return &ClickHouse{URL: endpoint, User: user, Password: password, HTTP: httpClient(60 * time.Second), MinuteArchive: os.Getenv("CANDLE_ARCHIVE_MODE") == "1m"}
 }
 func (c *ClickHouse) query(ctx context.Context, sql string, params url.Values, body []byte) ([]byte, error) {
+	stream, err := c.queryStream(ctx, sql, params, body)
+	if err != nil {
+		return nil, err
+	}
+	defer stream.Close()
+	return io.ReadAll(io.LimitReader(stream, 64<<20))
+}
+
+// Candle reads decode the response incrementally: a year of real minute rows
+// exceeds the small-response limit used by schema and metadata queries.
+func (c *ClickHouse) queryStream(ctx context.Context, sql string, params url.Values, body []byte) (io.ReadCloser, error) {
 	u, err := url.Parse(c.URL)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, errors.New("Некорректный адрес хранилища свечей")
@@ -47,15 +58,11 @@ func (c *ClickHouse) query(ctx context.Context, sql string, params url.Values, b
 	if err != nil {
 		return nil, fmt.Errorf("Хранилище свечей недоступно: %w", err)
 	}
-	defer response.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(response.Body, 64<<20))
-	if err != nil {
-		return nil, err
-	}
 	if response.StatusCode != http.StatusOK {
+		response.Body.Close()
 		return nil, fmt.Errorf("Хранилище свечей вернуло HTTP %d", response.StatusCode)
 	}
-	return raw, nil
+	return response.Body, nil
 }
 func (c *ClickHouse) Init(ctx context.Context) error {
 	if c.MinuteArchive {
@@ -79,11 +86,12 @@ func (c *ClickHouse) Read(ctx context.Context, market, symbol, tf string, from, 
 		return c.ReadMinutes(ctx, "bybit", market, symbol, tf, from, to)
 	}
 	params := url.Values{"param_market": {market}, "param_symbol": {symbol}, "param_tf": {tf}, "param_from": {strconv.FormatInt(from, 10)}, "param_to": {strconv.FormatInt(to, 10)}}
-	raw, err := c.query(ctx, `SELECT time,open,high,low,close,volume FROM shortlong_backtest.candles FINAL WHERE market={market:String} AND symbol={symbol:String} AND timeframe={tf:String} AND time>={from:Int64} AND time<{to:Int64} ORDER BY time FORMAT JSONEachRow`, params, nil)
+	stream, err := c.queryStream(ctx, `SELECT time,open,high,low,close,volume FROM shortlong_backtest.candles FINAL WHERE market={market:String} AND symbol={symbol:String} AND timeframe={tf:String} AND time>={from:Int64} AND time<{to:Int64} ORDER BY time FORMAT JSONEachRow`, params, nil)
 	if err != nil {
 		return nil, err
 	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
+	defer stream.Close()
+	decoder := json.NewDecoder(stream)
 	out := []bt.Candle{}
 	for {
 		var candle bt.Candle

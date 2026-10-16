@@ -52,8 +52,8 @@ export function StrategyForm({
       if (planError) { onLimit(planError); return; }
       onChange(normalized);
       setImportNotice(
-        parsed.data.timeframe === "5m" || parsed.data.timeframe === "15m"
-          ? "Стратегия загружена. Таймфрейм заменён на 1 час — проверьте период и условия."
+        parsed.data.timeframe !== "1m"
+          ? "Стратегия загружена для минутных свечей. Проверьте периоды индикаторов и условия."
           : "Стратегия загружена. Проверьте настройки перед запуском.",
       );
     } catch (e) {
@@ -129,7 +129,6 @@ export function StrategyForm({
         limits={limits}
         usage={usage}
         onLimit={onLimit}
-        timeframe={request.timeframe}
         market={request.market}
         value={request.strategy.entry}
         onChange={(entry) => change({ entry })}
@@ -190,7 +189,6 @@ export function StrategyForm({
                 limits={limits}
                 usage={usage}
                 onLimit={onLimit}
-                timeframe={request.timeframe}
                 market={request.market}
                 value={request.strategy.exit}
                 onChange={(exit) => change({ exit })}

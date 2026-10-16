@@ -6,8 +6,8 @@ import (
 )
 
 type ruleKey struct {
-	indicator, measure string
-	period, hours      int
+	indicator, measure, direction string
+	period, hours                 int
 }
 
 // Every series is causal. Missing inputs stay NaN; no forward fill of flows or
@@ -53,7 +53,7 @@ func (s *seriesCache) metric(name string) []float64 {
 	return v
 }
 func (s *seriesCache) ruleSeries(c bt.Condition) []float64 {
-	key := ruleKey{c.Indicator, c.Measure, c.Period, c.WindowHours}
+	key := ruleKey{indicator: c.Indicator, measure: c.Measure, direction: c.Direction, period: c.Period, hours: c.WindowHours}
 	if v, ok := s.rules[key]; ok {
 		return v
 	}
@@ -64,14 +64,25 @@ func (s *seriesCache) ruleSeries(c bt.Condition) []float64 {
 	if n < 1 {
 		n = 1
 	}
+	if c.Indicator == "price" || (s.isMinuteSeries() && hourlyMetric(c.Indicator)) {
+		var out []float64
+		switch {
+		case s.isMinuteSeries() && hourlyMetric(c.Indicator):
+			out = s.hourlyMetricSeries(c)
+		case s.isMinuteSeries() && c.Measure == "change_pct":
+			out = rollingPriceChange(s.candles, n, c.Direction)
+		default:
+			out = percentChange(s.close, n)
+		}
+		s.rules[key] = out
+		return out
+	}
 	out := emptySeries(len(s.close))
 	volume := make([]float64, len(s.close))
 	for i, candle := range s.candles {
 		volume[i] = candle.Volume
 	}
 	switch c.Indicator {
-	case "price":
-		out = percentChange(s.close, n)
 	case "openInterest":
 		out = percentChange(s.metric("openInterest"), n)
 	case "volume", "tradeBuyVolume", "tradeSellVolume":
@@ -223,18 +234,10 @@ func (s *seriesCache) ruleSeries(c bt.Condition) []float64 {
 		for i := 1; i < len(out); i++ {
 			returns[i] = math.Log(s.close[i] / s.close[i-1])
 		}
-		// Population standard deviation of hourly/4h log returns; not annualized.
-		for i := n; i < len(out); i++ {
-			mean := 0.0
-			for j := i - n + 1; j <= i; j++ {
-				mean += returns[j] / float64(n)
-			}
-			variance := 0.0
-			for j := i - n + 1; j <= i; j++ {
-				d := returns[j] - mean
-				variance += d * d / float64(n)
-			}
-			out[i] = math.Sqrt(variance) * 100
+		// Population standard deviation of closed-bar log returns; not annualized.
+		out = rollingStdDev(returns, n)
+		for i := range out {
+			out[i] *= 100
 		}
 	}
 	s.rules[key] = out
@@ -277,10 +280,14 @@ func (s *seriesCache) evaluateIndicator(c bt.Condition, i int) (bool, bool) {
 	case "lte":
 		return comparison <= 0, true
 	case "crosses_above", "crosses_below":
-		if i == 0 {
+		previousIndex := i - 1
+		if s.isMinuteSeries() && hourlyMetric(c.Indicator) {
+			previousIndex = i - 60
+		}
+		if previousIndex < 0 {
 			return false, false
 		}
-		previous := transform(values[i-1])
+		previous := transform(values[previousIndex])
 		if math.IsNaN(previous) || math.IsInf(previous, 0) {
 			return false, false
 		}

@@ -22,6 +22,7 @@ type Definition = {
   period?: number;
   futures?: boolean;
   trades?: boolean;
+  hourly?: boolean;
 };
 const change: Measure = {
   value: "change_pct",
@@ -53,7 +54,7 @@ export const indicators: Record<string, Definition> = {
     measures: [
       {
         ...change,
-        hint: "Сравниваем цену закрытия сейчас с ценой закрытия в начале окна. Например: рост не менее 5% за 24 часа.",
+        hint: "Рост — максимальный рост от более раннего минимума к последующему максимуму внутри окна: 100 → 150 → 120 даёт 50%. Снижение — от более раннего максимума к последующему минимуму. В любую сторону — большее из этих двух изменений.",
       },
     ],
   },
@@ -81,6 +82,7 @@ export const indicators: Record<string, Definition> = {
   openInterest: {
     name: "Открытый интерес (OI)",
     futures: true,
+    hourly: true,
     measures: [
       {
         ...change,
@@ -91,16 +93,19 @@ export const indicators: Record<string, Definition> = {
   cvd: {
     name: "Кумулятивная дельта объёма (CVD)",
     trades: true,
+    hourly: true,
     measures: [{ ...flowSum, label: "Изменение CVD за окно" }, imbalance],
   },
   delta: {
     name: "Дельта объёма",
     trades: true,
+    hourly: true,
     measures: [flowSum, imbalance],
   },
   tradeBuyVolume: {
     name: "Объём рыночных покупок",
     trades: true,
+    hourly: true,
     measures: [
       {
         ...change,
@@ -117,6 +122,7 @@ export const indicators: Record<string, Definition> = {
   tradeSellVolume: {
     name: "Объём рыночных продаж",
     trades: true,
+    hourly: true,
     measures: [
       {
         ...change,
@@ -150,19 +156,19 @@ export const indicators: Record<string, Definition> = {
         value: "histogram",
         label: "Гистограмма MACD",
         unit: "USDT",
-        hint: "MACD (EMA 12 − EMA 26) минус сигнальная EMA 9. Ноль — граница положительной и отрицательной гистограммы.",
+        hint: "MACD (EMA 12 − EMA 26) минус сигнальная EMA 9. Периоды — в минутных свечах. Ноль — граница положительной и отрицательной гистограммы.",
       },
       {
         value: "line",
         label: "Линия MACD",
         unit: "USDT",
-        hint: "Разница EMA 12 и EMA 26 на закрытии свечи.",
+        hint: "Разница EMA 12 и EMA 26 на закрытии минутной свечи. Периоды — 12 и 26 минутных свечей.",
       },
       {
         value: "signal_cross",
         label: "Пересечение сигнальной линии",
         unit: "",
-        hint: "Линия MACD пересекает сигнальную EMA 9 между двумя закрытыми свечами. Касание не считается пересечением.",
+        hint: "Линия MACD пересекает сигнальную EMA 9 между двумя закрытыми минутными свечами. Периоды MACD — 12 / 26 / 9 минутных свечей. Касание не считается пересечением.",
       },
     ],
   },
@@ -198,7 +204,7 @@ export const indicators: Record<string, Definition> = {
         value: "value",
         label: "ATR относительно цены",
         unit: "%",
-        hint: "ATR по Уайлдеру / цена закрытия × 100. Период задаётся в свечах выбранного таймфрейма.",
+        hint: "ATR по Уайлдеру / цена закрытия × 100. Период задаётся в минутных свечах.",
       },
     ],
   },
@@ -218,7 +224,7 @@ export const indicators: Record<string, Definition> = {
     measures: [
       {
         ...oscillator,
-        hint: "Осциллятор типичной цены и объёма, шкала 0–100. Период задаётся в свечах.",
+        hint: "Осциллятор типичной цены и объёма, шкала 0–100. Период задаётся в минутных свечах.",
       },
     ],
   },
@@ -334,7 +340,7 @@ export function ruleError(r: IndicatorRule): string | null {
       ? !Number.isInteger(r.period) || r.period! < 2 || r.period! > 400
       : r.period !== undefined
   )
-    return "Период индикатора — от 2 до 400 свечей";
+    return "Период индикатора — от 2 до 400 минутных свечей";
   const [min, max] = thresholdBounds(r);
   if (!Number.isFinite(r.threshold) || r.threshold < min || r.threshold > max)
     return `Порог: от ${min} до ${max}`;
@@ -365,9 +371,9 @@ export function describeRule(r: IndicatorRule): string {
   if (!def || !measure) return "Выберите индикатор";
   const number = Number.isFinite(r.threshold) ? String(r.threshold) : "…";
   const window = hasWindow(r) ? ` за ${r.windowHours ?? "…"} ч` : "";
-  const period = r.period ? ` (${r.period})` : "";
+  const period = r.period ? ` (${r.period} мин)` : "";
   if (r.measure === "signal_cross")
-    return `MACD (12, 26, 9) ${relations[r.operator]} сигнальную линию`;
+    return `MACD (12, 26, 9 мин) ${relations[r.operator]} сигнальную линию`;
   if (r.measure === "change_pct")
     return `${def.name}: ${r.direction === "down" ? "снижение" : r.direction === "both" ? "изменение в любую сторону" : "рост"} ${relations[r.operator]} ${number}%${window}`;
   return `${def.name}${period}: ${measure.label.toLowerCase()} ${relations[r.operator]} ${number} ${measure.unit}${window}`;

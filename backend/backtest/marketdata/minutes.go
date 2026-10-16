@@ -1,7 +1,6 @@
 package marketdata
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -51,7 +50,7 @@ func (c *ClickHouse) ReadMinutes(ctx context.Context, exchange, market, symbol, 
 	}
 	p := url.Values{"param_exchange": {exchange}, "param_market": {market}, "param_symbol": {symbol}, "param_from": {strconv.FormatInt(from, 10)}, "param_to": {strconv.FormatInt(to, 10)}, "param_step": {strconv.FormatInt(step, 10)}}
 	// FINAL removes retry duplicates before aggregation. Missing minutes never become flat bars.
-	raw, err := c.query(ctx, `SELECT intDiv(time,{step:Int64})*{step:Int64} AS bucket,
+	stream, err := c.queryStream(ctx, `SELECT intDiv(time,{step:Int64})*{step:Int64} AS bucket,
  argMin(open,time) AS open,max(high) AS high,min(low) AS low,argMax(close,time) AS close,sum(volume) AS volume
  FROM shortlong_backtest.candles_1m FINAL
  WHERE exchange={exchange:String} AND market={market:String} AND symbol={symbol:String}
@@ -60,7 +59,8 @@ func (c *ClickHouse) ReadMinutes(ctx context.Context, exchange, market, symbol, 
 	if err != nil {
 		return nil, err
 	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
+	defer stream.Close()
+	dec := json.NewDecoder(stream)
 	out := []bt.Candle{}
 	for {
 		var row struct {

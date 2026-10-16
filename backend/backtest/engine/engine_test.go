@@ -192,7 +192,8 @@ func TestShortAndIndicatorExit(t *testing.T) {
 }
 func TestMissingHistoryInvalidOHLCAndCancellation(t *testing.T) {
 	r, data := fixture()
-	data["BTCUSDT"] = data["BTCUSDT"][1:]
+	c := data["BTCUSDT"]
+	data["BTCUSDT"] = append(c[:2:2], c[3:]...)
 	if _, err := Run(context.Background(), r, data, nil); err == nil || !strings.Contains(err.Error(), "Неполная история") {
 		t.Fatal(err)
 	}

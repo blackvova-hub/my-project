@@ -220,7 +220,7 @@ function BacktestWorkspace({ userId, plan }: { userId: string; plan?: string }) 
                         {j.request.symbols.join(", ")}
                         <small>
                           {j.request.market === "spot" ? "Spot" : "Futures"} ·{" "}
-                          {j.request.timeframe} ·{" "}
+                          {j.request.timeframe === "1m" ? "1 мин" : j.request.timeframe} ·{" "}
                           {new Date(j.createdAt).toLocaleString("ru-RU")}
                         </small>
                       </span>

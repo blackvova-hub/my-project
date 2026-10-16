@@ -20,11 +20,11 @@ type PlanLimits struct {
 func LimitsForPlan(plan string) PlanLimits {
 	switch strings.ToLower(strings.TrimSpace(plan)) {
 	case "pro":
-		return PlanLimits{"Pro", 10, 32, 32, 2, 8}
+		return PlanLimits{"Pro", 15, 32, 32, 2, 8}
 	case "standard", "standart":
-		return PlanLimits{"Standard", 5, 12, 6, 1, 8}
+		return PlanLimits{"Standard", 10, 12, 6, 1, 8}
 	default:
-		return PlanLimits{"Free", 1, 3, 2, 0, 3}
+		return PlanLimits{"Free", 6, 3, 2, 0, 3}
 	}
 }
 

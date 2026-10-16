@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"log"
@@ -171,33 +172,40 @@ func execute(parent context.Context, store jobs.Store, history *marketdata.Histo
 		if err := request.Validate(time.Now().UTC()); err != nil {
 			return nil, err
 		}
-		symbols, err := history.Bybit.Symbols(ctx, request.Market)
+		instruments, err := history.Bybit.Instruments(ctx, request.Market)
 		if err != nil {
 			return nil, err
 		}
-		available := map[string]bool{}
-		for _, symbol := range symbols {
-			available[symbol] = true
+		available := make(map[string]marketdata.Instrument, len(instruments))
+		for _, instrument := range instruments {
+			available[instrument.Symbol] = instrument
 		}
 		for _, symbol := range request.Symbols {
-			if !available[symbol] {
-				return nil, errors.New("Выбранная торговая пара недоступна на этом рынке Bybit")
+			if _, ok := available[symbol]; !ok {
+				return nil, fmt.Errorf("%s: торговая пара недоступна на этом рынке Bybit", symbol)
 			}
 		}
 		data := make(map[string][]bt.Candle, len(request.Symbols))
-		step := bt.Interval(request.Timeframe).Milliseconds()
-		from := request.From.UnixMilli() - int64(request.WarmupBars())*step
 		for i, symbol := range request.Symbols {
 			metricsPhase.Store("")
-			candles, err := history.Load(ctx, request.Market, symbol, request.Timeframe, from, request.To.UnixMilli(), func(p int) { progress.Store(int64(1 + (i*100+p/2)*69/(len(request.Symbols)*100))) })
+			from := symbolHistoryStart(request, available[symbol].LaunchTime)
+			if from >= request.To.UnixMilli() {
+				data[symbol] = nil
+				continue
+			}
+			candles, err := history.LoadAvailable(ctx, request.Market, symbol, request.Timeframe, from, request.To.UnixMilli(), func(p int) { progress.Store(int64(1 + (i*100+p/2)*69/(len(request.Symbols)*100))) })
 			if err != nil {
 				return nil, err
 			}
-			if err = history.Enrich(ctx, request, symbol, candles, func(kind string, p int) {
-				metricsPhase.Store("loading_" + kind)
-				progress.Store(int64(1 + (i*100+50+p/2)*69/(len(request.Symbols)*100)))
-			}); err != nil {
-				return nil, err
+			// A series too short to warm up cannot produce a signal. The engine
+			// reports it as skipped without loading unavailable derivative metrics.
+			if len(candles) > request.WarmupBars()+1 {
+				if err = history.Enrich(ctx, request, symbol, candles, func(kind string, p int) {
+					metricsPhase.Store("loading_" + kind)
+					progress.Store(int64(1 + (i*100+50+p/2)*69/(len(request.Symbols)*100)))
+				}); err != nil {
+					return nil, err
+				}
 			}
 			data[symbol] = candles
 		}
@@ -229,4 +237,16 @@ func execute(parent context.Context, store jobs.Store, history *marketdata.Histo
 	} else {
 		log.Printf("job %s complete trades=%d", id, result.Metrics.TradeCount)
 	}
+}
+
+// Listing metadata avoids requesting months of pre-listing candles. Start at
+// the containing timeframe boundary; LoadAvailable discards an incomplete first
+// bar using the actual source candles rather than assuming launchTime is exact.
+func symbolHistoryStart(request bt.Request, launchTime int64) int64 {
+	step := bt.Interval(request.Timeframe).Milliseconds()
+	from := request.From.UnixMilli() - int64(request.WarmupBars())*step
+	if launchTime > from {
+		from = launchTime / step * step
+	}
+	return from
 }

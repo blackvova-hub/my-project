@@ -86,3 +86,52 @@ func TestThresholdPresenceAndUnknownParameters(t *testing.T) {
 		}
 	}
 }
+
+func TestMinuteRequestsSupportAllIndicatorsAndHourlyWindows(t *testing.T) {
+	now := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	for indicator, measures := range IndicatorMeasures {
+		for _, measure := range measures {
+			t.Run(indicator+"/"+measure, func(t *testing.T) {
+				r := validRequest()
+				r.Market, r.Timeframe, r.Strategy.Version = "linear", "1m", 2
+				c := Condition{Kind: "indicator", Indicator: indicator, Measure: measure, Operator: "gte", Threshold: 0}
+				if HasWindow(c) {
+					c.WindowHours = 3
+				}
+				if HasPeriod(c) {
+					c.Period = 14
+				}
+				if measure == "change_pct" {
+					c.Direction = "up"
+				}
+				if measure == "signal_cross" {
+					c.Operator = "crosses_above"
+				}
+				r.Strategy.Entry = c
+				if err := r.ValidateForPlan(now, "free"); err != nil {
+					t.Fatal(err)
+				}
+				raw, err := json.Marshal(r)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var decoded Request
+				if err := json.Unmarshal(raw, &decoded); err != nil || decoded.Timeframe != "1m" {
+					t.Fatalf("minute contract lost: %v", err)
+				}
+			})
+		}
+	}
+	if got := (Condition{Indicator: "price", Measure: "change_pct", WindowHours: 720}).RequiredBars(time.Minute); got != 43201 {
+		t.Fatalf("30-day minute window = %d bars", got)
+	}
+	for _, c := range []Condition{
+		{Indicator: "openInterest", Measure: "change_pct", WindowHours: 24},
+		{Indicator: "cvd", Measure: "sum", WindowHours: 24},
+		{Indicator: "tradeBuyVolume", Measure: "change_pct", WindowHours: 24},
+	} {
+		if got, want := c.RequiredBars(time.Minute), c.RequiredBars(time.Hour)*60; got != want {
+			t.Fatalf("%s native-hour warmup: got %d minutes, want %d", c.Indicator, got, want)
+		}
+	}
+}

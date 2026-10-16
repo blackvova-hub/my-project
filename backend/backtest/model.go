@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const EngineVersion = "2.0.0"
+const EngineVersion = "3.0.0"
 
 type Operand struct {
 	Kind   string  `json:"kind"`
@@ -111,6 +111,8 @@ var symbolPattern = regexp.MustCompile(`^[A-Z0-9]{2,24}USDT$`)
 func ValidSymbol(s string) bool { return symbolPattern.MatchString(s) }
 func Interval(tf string) time.Duration {
 	switch tf {
+	case "1m":
+		return time.Minute
 	case "5m":
 		return 5 * time.Minute
 	case "15m":
@@ -129,8 +131,8 @@ func (r Request) Validate(now time.Time) error {
 	if r.Exchange != "bybit" || (r.Market != "spot" && r.Market != "linear") {
 		return errors.New("Поддерживаются только Bybit Spot и USDT Futures")
 	}
-	if len(r.Symbols) < 1 || len(r.Symbols) > 10 {
-		return errors.New("Выберите от 1 до 10 монет")
+	if len(r.Symbols) < 1 || len(r.Symbols) > 15 {
+		return errors.New("Выберите от 1 до 15 монет")
 	}
 	seen := map[string]bool{}
 	for _, s := range r.Symbols {
@@ -141,7 +143,7 @@ func (r Request) Validate(now time.Time) error {
 	}
 	step := Interval(r.Timeframe)
 	if step == 0 {
-		return errors.New("Допустимые таймфреймы: 5m, 15m, 1h, 4h")
+		return errors.New("Допустимые таймфреймы: 1m, 5m, 15m, 1h, 4h")
 	}
 	earliest := now.UTC().Truncate(24*time.Hour).AddDate(-1, 0, 0)
 	if r.From.IsZero() || r.To.IsZero() || !r.To.After(r.From) || r.To.After(now.UTC().Truncate(step)) || r.From.Before(earliest) || r.To.After(r.From.AddDate(1, 0, 0)) {
@@ -336,4 +338,7 @@ type SignalStats struct {
 	Symbol        string `json:"symbol"`
 	EvaluatedBars int    `json:"evaluatedBars"`
 	MatchedBars   int    `json:"matchedBars"`
+	AvailableFrom int64  `json:"availableFrom,omitempty"` // First real candle open, UTC milliseconds; includes warmup.
+	TradingFrom   int64  `json:"tradingFrom,omitempty"`   // Earliest possible entry after warmup and a closed in-period signal.
+	SkippedReason string `json:"skippedReason,omitempty"`
 }

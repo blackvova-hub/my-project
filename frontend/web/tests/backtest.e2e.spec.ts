@@ -72,7 +72,7 @@ test("market controls, real job, reload, trades export and mobile navigation", a
     exchange: "bybit",
     market: "linear",
     symbols: ["BTCUSDT", "ETHUSDT"],
-    timeframe: "1h",
+    timeframe: "1m",
     from: start.toISOString(),
     to: end.toISOString(),
     strategy: {

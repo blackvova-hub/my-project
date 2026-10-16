@@ -80,6 +80,9 @@ func (c *ClickHouse) insertMetrics(ctx context.Context, market, symbol string, p
 // Enrich loads only metrics used by this strategy, on demand. A shared session
 // lock prevents two jobs from downloading the same immutable daily trade file.
 func (h *History) Enrich(ctx context.Context, r bt.Request, symbol string, candles []bt.Candle, progress func(string, int)) error {
+	if len(candles) == 0 {
+		return nil
+	}
 	warmups := r.MetricWarmup()
 	completed := 0
 	for _, kind := range []string{"oi", "trades"} {
@@ -87,7 +90,7 @@ func (h *History) Enrich(ctx context.Context, r bt.Request, symbol string, candl
 		if !needed {
 			continue
 		}
-		from := r.From.UnixMilli() - int64(warm)*bt.Interval(r.Timeframe).Milliseconds()
+		from := metricStart(r, warm, candles[0].Time)
 		to := r.To.UnixMilli()
 		report := func(phase string, percent int) {
 			if progress != nil {
@@ -101,6 +104,15 @@ func (h *History) Enrich(ctx context.Context, r bt.Request, symbol string, candl
 	}
 	return nil
 }
+
+func metricStart(r bt.Request, warm int, firstCandle int64) int64 {
+	from := r.From.UnixMilli() - int64(warm)*bt.Interval(r.Timeframe).Milliseconds()
+	if firstCandle > from {
+		from = firstCandle
+	}
+	return from
+}
+
 func (h *History) enrichRange(ctx context.Context, market, symbol, kind, tf string, from, to int64, candles []bt.Candle, progress func(string, int)) error {
 	const hour = int64(3600000)
 	const day = 24 * hour
@@ -108,6 +120,9 @@ func (h *History) enrichRange(ctx context.Context, market, symbol, kind, tf stri
 	if kind == "trades" {
 		start = from / day * day
 		end = (to + day - 1) / day * day
+	} else if tf == "1m" {
+		start = (from + hour - 1) / hour * hour
+		end = to/hour*hour + hour
 	}
 	conn, err := h.DB.Acquire(ctx)
 	if err != nil {
@@ -187,11 +202,36 @@ func (h *History) enrichRange(ctx context.Context, market, symbol, kind, tf stri
 		}
 		at = chunkEnd
 	}
+	if err := applyHistoricalMetrics(symbol, kind, tf, from, candles, names, byTime); err != nil {
+		return err
+	}
+	if progress != nil {
+		progress(kind, 100)
+	}
+	return nil
+}
+
+// Hourly observations stay hourly on a minute execution clock. A sample is
+// attached only to the minute whose close makes that observation available.
+// The engine evaluates external-series rules on these native hourly samples.
+func applyHistoricalMetrics(symbol, kind, tf string, from int64, candles []bt.Candle, names []string, byTime map[int64]map[string]float64) error {
+	const hour = int64(time.Hour / time.Millisecond)
 	step := bt.Interval(tf).Milliseconds()
 	for i := range candles {
 		b := &candles[i]
 		if b.Time < from {
 			continue
+		}
+		if tf == "1m" {
+			closing := b.Time + step
+			// A listing partway through an hour has no complete first hourly
+			// flow window. OI is a point observation and can use its first close.
+			if closing%hour != 0 || (kind == "trades" && closing-hour < candles[0].Time) {
+				for _, name := range names {
+					delete(b.Metrics, name)
+				}
+				continue
+			}
 		}
 		if b.Metrics == nil {
 			b.Metrics = map[string]float64{}
@@ -205,7 +245,11 @@ func (h *History) enrichRange(ctx context.Context, market, symbol, kind, tf stri
 				}
 				value = v
 			} else {
-				for ts := b.Time; ts < b.Time+step; ts += hour {
+				start := b.Time
+				if tf == "1m" {
+					start = b.Time + step - hour
+				}
+				for ts := start; ts < b.Time+step; ts += hour {
 					v, ok := byTime[ts][name]
 					if !ok {
 						return missingMetric(symbol, name, ts)
@@ -215,9 +259,6 @@ func (h *History) enrichRange(ctx context.Context, market, symbol, kind, tf stri
 			}
 			b.Metrics[name] = value
 		}
-	}
-	if progress != nil {
-		progress(kind, 100)
 	}
 	return nil
 }

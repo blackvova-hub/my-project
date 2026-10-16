@@ -3,6 +3,7 @@ package backtestapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,6 +24,23 @@ func testBody() string {
 	}{"12345678-1234-4234-8234-123456789012", r})
 	return string(raw)
 }
+
+func withSymbolCount(body string, count int) string {
+	var input map[string]any
+	if err := json.Unmarshal([]byte(body), &input); err != nil {
+		panic(err)
+	}
+	symbols := make([]string, count)
+	for i := range symbols {
+		symbols[i] = fmt.Sprintf("COIN%dUSDT", i)
+	}
+	input["symbols"] = symbols
+	raw, err := json.Marshal(input)
+	if err != nil {
+		panic(err)
+	}
+	return string(raw)
+}
 func TestRequestBoundaryRejectsUnauthenticatedCrossSiteAndInvalidPayload(t *testing.T) {
 	cases := []struct {
 		name, body, contentType, origin, site string
@@ -38,7 +56,7 @@ func TestRequestBoundaryRejectsUnauthenticatedCrossSiteAndInvalidPayload(t *test
 		{name: "unknown field", body: strings.Replace(testBody(), `"exchange":`, `"script":"evil","exchange":`, 1), contentType: "application/json", authenticated: true, want: 400},
 		{name: "oversized body", body: strings.Repeat(" ", 32769) + testBody(), contentType: "application/json", authenticated: true, want: 400},
 		{name: "invalid symbol", body: strings.Replace(testBody(), "BTCUSDT", "BTC;DROP", 1), contentType: "application/json", authenticated: true, want: 422},
-		{name: "invalid interval", body: strings.Replace(testBody(), `"1h"`, `"1m"`, 1), contentType: "application/json", authenticated: true, want: 422},
+		{name: "invalid interval", body: strings.Replace(testBody(), `"1h"`, `"2m"`, 1), contentType: "application/json", authenticated: true, want: 422},
 		{name: "invalid key", body: strings.Replace(testBody(), "12345678-1234-4234-8234-123456789012", "invalid", 1), contentType: "application/json", authenticated: true, want: 400},
 	}
 	for _, tc := range cases {
@@ -81,10 +99,10 @@ func TestAuthenticatedPlanCannotBeOverriddenByClient(t *testing.T) {
 		name, plan, body string
 		status           int
 	}{
-		{"free two pairs", "free", strings.Replace(testBody(), `["BTCUSDT"]`, `["BTCUSDT","ETHUSDT"]`, 1), 422},
-		{"missing plan falls back to free", "", strings.Replace(testBody(), `["BTCUSDT"]`, `["BTCUSDT","ETHUSDT"]`, 1), 422},
-		{"standard six pairs", "standard", strings.Replace(testBody(), `["BTCUSDT"]`, `["BTCUSDT","ETHUSDT","SOLUSDT","ADAUSDT","XRPUSDT","DOGEUSDT"]`, 1), 422},
-		{"pro eleven pairs", "pro", strings.Replace(testBody(), `["BTCUSDT"]`, `["AAUSDT","BBUSDT","CCUSDT","DDUSDT","EEUSDT","FFUSDT","GGUSDT","HHUSDT","IIUSDT","JJUSDT","KKUSDT"]`, 1), 422},
+		{"free seven pairs", "free", withSymbolCount(testBody(), 7), 422},
+		{"missing plan falls back to free", "", withSymbolCount(testBody(), 7), 422},
+		{"standard eleven pairs", "standard", withSymbolCount(testBody(), 11), 422},
+		{"pro sixteen pairs", "pro", withSymbolCount(testBody(), 16), 422},
 		{"forged body plan", "free", strings.Replace(testBody(), `"exchange":`, `"plan":"pro","exchange":`, 1), 400},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

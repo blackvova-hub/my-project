@@ -38,7 +38,7 @@ try {
   payload.exchange = "bybit";
   payload.market = "spot";
   payload.symbols = ["BTCUSDT"];
-  payload.timeframe = "1h";
+  payload.timeframe = "1m";
   payload.from = "2026-01-01T00:00:00.000Z";
   payload.to = "2026-01-02T00:00:00.000Z";
   payload.strategy.direction = "long";

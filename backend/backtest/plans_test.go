@@ -12,7 +12,7 @@ func TestPlanSymbolBoundaries(t *testing.T) {
 		plan string
 		max  int
 	}{
-		{"free", 1}, {"", 1}, {"unknown", 1}, {"standard", 5}, {"standart", 5}, {" PRO ", 10},
+		{"free", 6}, {"", 6}, {"unknown", 6}, {"standard", 10}, {"standart", 10}, {" PRO ", 15},
 	} {
 		t.Run(tc.plan, func(t *testing.T) {
 			r := validRequest()

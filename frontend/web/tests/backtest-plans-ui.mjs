@@ -6,10 +6,10 @@ import { defaultRequest } from "../src/pages/public/backtest/model.ts";
 const base = process.env.BACKTEST_E2E_URL ?? "http://localhost:3000";
 const out = "../../tmp/backtest-plans";
 mkdirSync(out, { recursive: true });
-const symbols = ["BTCUSDT", "ETHUSDT", ...Array.from({ length: 25 }, (_, i) => `COIN${i}USDT`)];
+const symbols = ["BTCUSDT", "ETHUSDT", ...Array.from({ length: 35 }, (_, i) => `COIN${i}USDT`)];
 const browser = await chromium.launch({ channel: "msedge", headless: true });
 try {
-  for (const [plan, max] of [["free", 1], ["standard", 5], ["pro", 10]]) {
+  for (const [plan, max] of [["free", 6], ["standard", 10], ["pro", 15]]) {
     const context = await browser.newContext({ viewport: { width: 1536, height: 1000 }, reducedMotion: "reduce" });
     await context.addInitScript(() => {
       localStorage.setItem("cookie_consent", "essential");
@@ -45,7 +45,8 @@ try {
     await page.goto(`${base}/backtest`);
     await expect(button("Запустить тест")).toBeEnabled();
     await expect(page.locator(".bt-page")).not.toContainText(/Тариф (Free|Standard|Pro)|Условия: \d+ из|Лимит общий/);
-    await expect(page.locator(".bt-symbol-field")).toContainText("из 15");
+    await expect(page.locator(".bt-symbol-field")).toContainText(`из ${max}`);
+    await expect(page.getByText("Таймфрейм", { exact: true })).toHaveCount(0);
     await page.evaluate(() => window.scrollTo(0, 600));
     await page.evaluate(() => window.scrollTo(0, 300));
     expect(await page.locator("header").evaluate((el) => el.getBoundingClientRect().bottom)).toBeLessThan(0);
@@ -63,7 +64,7 @@ try {
       await button(symbol).click();
     }
     await button("Добавить").click();
-    await closeDialog(plan === "free" ? /Standard и Pro/ : plan === "standard" ? /в Pro/ : /до 10/);
+    await closeDialog(plan === "free" ? /Standard и Pro/ : plan === "standard" ? /в Pro/ : /до 15/);
     await expect(button("Добавить")).toBeFocused();
     const before = await selected();
     await button("Рандом").click();
@@ -90,6 +91,7 @@ try {
     await button("Запустить тест").click();
     await expect(page.getByRole("alert")).toContainText("UI test: request captured");
     expect(submitted.symbols).toHaveLength(max);
+    expect(submitted.timeframe).toBe("1m");
     expect(submitted.plan).toBeUndefined();
     const invalid = defaultRequest();
     invalid.symbols = [...symbols.slice(0, max), "EXTRAUSDT"];
@@ -100,13 +102,19 @@ try {
     if (plan === "free") {
       await page.evaluate((r) => localStorage.setItem("backtest:draft:v1:plan-test", JSON.stringify(r)), invalid);
       await page.reload();
-      await expect(page.locator(".bt-symbol")).toHaveCount(2);
+      await expect(page.locator(".bt-symbol")).toHaveCount(max + 1);
       const previous = submitted;
       await button("Запустить тест").click();
       await closeDialog(/максимум торговых пар/);
       expect(submitted).toBe(previous);
     }
     await button("Сбросить настройки").click();
+    const legacy = { ...defaultRequest(), timeframe: "4h" };
+    await page.getByLabel("Импорт стратегии", { exact: true }).setInputFiles({ name: "legacy-hourly.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(legacy)) });
+    await expect(page.locator(".bt-page")).toContainText("Стратегия загружена для минутных свечей");
+    await button("Запустить тест").click();
+    await expect(page.getByRole("alert")).toContainText("UI test: request captured");
+    expect(submitted.timeframe).toBe("1m");
     if (plan === "free") {
       await button("Удалить BTCUSDT").click();
       await button("Добавить").click();
@@ -117,6 +125,10 @@ try {
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     if (plan === "free") {
+      for (const symbol of symbols.filter((s) => s !== "ETHUSDT").slice(0, max - 1)) {
+        await button("Добавить").click();
+        await button(symbol).click();
+      }
       await button("Добавить").click();
       await expect(dialog).toBeVisible();
       await page.screenshot({ path: `${out}/${plan}-modal.png` });

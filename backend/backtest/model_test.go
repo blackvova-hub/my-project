@@ -22,7 +22,7 @@ func validRequest() Request {
 }
 func TestValidationBoundaries(t *testing.T) {
 	now := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
-	cases := map[string]func(*Request){"future": func(r *Request) { r.To = now.Add(time.Hour) }, "old": func(r *Request) { r.From = now.AddDate(-2, 0, 0) }, "minute": func(r *Request) { r.Timeframe = "1m" }, "duplicates": func(r *Request) { r.Symbols = []string{"BTCUSDT", "BTCUSDT"} }, "spot short": func(r *Request) { r.Strategy.Direction = "short" }, "unknown node": func(r *Request) { r.Strategy.Entry.Kind = "script" }, "huge period": func(r *Request) { r.Strategy.Entry.Children[0].Left.Period = 401 }, "empty group": func(r *Request) { r.Strategy.Entry.Children = nil }, "no stop": func(r *Request) { r.Strategy.StopLossPct = 0 }, "bad operator": func(r *Request) { r.Strategy.Entry.Children[0].Operator = "eval" }}
+	cases := map[string]func(*Request){"future": func(r *Request) { r.To = now.Add(time.Hour) }, "old": func(r *Request) { r.From = now.AddDate(-2, 0, 0) }, "invalid interval": func(r *Request) { r.Timeframe = "2m" }, "duplicates": func(r *Request) { r.Symbols = []string{"BTCUSDT", "BTCUSDT"} }, "spot short": func(r *Request) { r.Strategy.Direction = "short" }, "unknown node": func(r *Request) { r.Strategy.Entry.Kind = "script" }, "huge period": func(r *Request) { r.Strategy.Entry.Children[0].Left.Period = 401 }, "empty group": func(r *Request) { r.Strategy.Entry.Children = nil }, "no stop": func(r *Request) { r.Strategy.StopLossPct = 0 }, "bad operator": func(r *Request) { r.Strategy.Entry.Children[0].Operator = "eval" }}
 	if err := validRequest().Validate(now); err != nil {
 		t.Fatal(err)
 	}

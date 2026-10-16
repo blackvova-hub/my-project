@@ -59,7 +59,7 @@ try {
     label,
     rules,
     market = "linear",
-    tf = "1h",
+    tf = "1m",
     patch = {},
   ) => {
     const payload = structuredClone(base);
@@ -87,7 +87,7 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
     }
     expect(result.status, `${label}: ${result.error}`).toBe("completed");
-    expect(result.result.engineVersion).toBe("2.0.0");
+    expect(result.result.engineVersion).toBe("3.0.0");
     expect(result.result.signals[0].evaluatedBars).toBeGreaterThan(0);
     jobs.push({
       id: activeId,
@@ -105,19 +105,19 @@ try {
       await apiJob(`${name}/${measure.value}`, [makeRule(name, measure.value)]);
   await apiJob("Spot real CVD", [makeRule("cvd", "imbalance_pct")], "spot");
   await apiJob(
-    "4h OI + CVD",
+    "1m with native hourly OI + CVD",
     [
       { ...makeRule("openInterest"), direction: "both", threshold: 0 },
       { ...makeRule("cvd", "imbalance_pct"), threshold: -100 },
     ],
     "linear",
-    "4h",
+    "1m",
   );
   await apiJob(
     "Short + indicator exit without TP",
     [{ ...makeRule(), threshold: 0, direction: "both" }],
     "linear",
-    "1h",
+    "1m",
     {
       direction: "short",
       takeProfitPct: 0,
@@ -165,7 +165,7 @@ try {
   await anonymous.close();
   expect(errors).toEqual([]);
   check(
-    "all real-history engine measures, Spot CVD, 4h OI+CVD, Short exit, UI cancellation, API restrictions, no browser exceptions",
+    "all real-history engine measures on 1m, Spot CVD, native hourly OI+CVD, Short exit, UI cancellation, API restrictions, no browser exceptions",
   );
   writeFileSync(
     path.join(out, process.env.BACKTEST_API_ONLY ? "api-checks.json" : "checks.json"),

@@ -128,8 +128,8 @@ func (r Request) validateIndicators() error {
 		if c.Kind != "indicator" || invalid != nil {
 			return
 		}
-		if r.Timeframe != "1h" && r.Timeframe != "4h" {
-			invalid = errors.New("Для новых условий доступны таймфреймы 1h и 4h")
+		if r.Timeframe != "1m" && r.Timeframe != "1h" && r.Timeframe != "4h" {
+			invalid = errors.New("Для новых условий доступны таймфреймы 1m, 1h и 4h")
 			return
 		}
 		if HasWindow(c) && time.Duration(c.WindowHours)*time.Hour%Interval(r.Timeframe) != 0 {
@@ -142,6 +142,11 @@ func (r Request) validateIndicators() error {
 	return invalid
 }
 func (c Condition) RequiredBars(step time.Duration) int {
+	// External histories are published hourly. Reserve complete native windows
+	// even when orders and OHLCV indicators run on a minute execution clock.
+	if step < time.Hour && (c.Indicator == "openInterest" || c.Indicator == "cvd" || c.Indicator == "delta" || c.Indicator == "tradeBuyVolume" || c.Indicator == "tradeSellVolume") {
+		return c.RequiredBars(time.Hour) * int(time.Hour/step)
+	}
 	n := int(time.Duration(c.WindowHours) * time.Hour / step)
 	switch c.Indicator {
 	case "volume", "tradeBuyVolume", "tradeSellVolume":

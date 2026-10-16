@@ -34,11 +34,11 @@ export async function exerciseUI(
       /Начать с примера|Выбрать пример условий|Smart Money|Снятие ликвидности/,
     ),
   ).toHaveCount(0);
-  await expect(page.locator('[aria-label="Таймфрейм"] button')).toHaveCount(2);
+  await expect(page.locator('[aria-label="Таймфрейм"]')).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Тест стратегии", exact: true }).first(),
   ).toBeVisible();
-  check("common header, no templates/Smart Money, only 1h and 4h");
+  check("common header, no templates/Smart Money or timeframe selector");
   for (const [name, def] of Object.entries(indicators)) {
     await select("Вход в позицию 1: индикатор", def.name);
     for (const measure of def.measures) {
@@ -50,7 +50,9 @@ export async function exerciseUI(
         await expect(page.locator(".bt-rule-summary")).toContainText("12 ч");
       }
       if (def.period)
-        await field("Вход в позицию 1: период в свечах").fill("20");
+        await field("Вход в позицию 1: период в минутных свечах").fill("20");
+      if (def.hourly)
+        await expect(page.locator(".bt-rule")).toContainText("только на закрытых часовых границах");
       if (measure.value !== "signal_cross")
         await field("Вход в позицию 1: порог").fill("0");
       await expect(page.locator(".bt-rule-summary")).not.toContainText(
@@ -61,15 +63,14 @@ export async function exerciseUI(
   }
   check("all 17 indicator selectors and every measure/period/window/threshold");
   await select("Вход в позицию 1: индикатор", "Цена");
-  await button("4 часа").click();
   await field("Вход в позицию 1: окно в часах").fill("3");
-  await expect(page.locator(".bt-rule-error")).toContainText("кратно 4");
+  await expect(page.locator(".bt-rule-error")).toHaveCount(0);
+  await expect(page.locator(".bt-rule-summary")).toContainText("3 ч");
   await page
     .locator(".bt-window-presets button")
     .filter({ hasText: /^1 д$/ })
     .click();
   await expect(page.locator(".bt-rule-error")).toHaveCount(0);
-  await button("1 час").click();
   for (const option of ["Снижение", "В любую сторону", "Рост"])
     await select("Вход в позицию 1: направление изменения", option);
   for (const option of [

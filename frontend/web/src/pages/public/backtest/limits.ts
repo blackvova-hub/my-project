@@ -11,9 +11,9 @@ export type BacktestLimits = {
 };
 
 const limits: Record<PlanLevel, BacktestLimits> = {
-  free: { plan: "free", maxSymbols: 1, maxConditions: 3, maxGroups: 2, maxDepth: 0, maxGroupChildren: 3 },
-  standard: { plan: "standard", maxSymbols: 5, maxConditions: 12, maxGroups: 6, maxDepth: 1, maxGroupChildren: 8 },
-  pro: { plan: "pro", maxSymbols: 10, maxConditions: 32, maxGroups: 32, maxDepth: 2, maxGroupChildren: 8 },
+  free: { plan: "free", maxSymbols: 6, maxConditions: 3, maxGroups: 2, maxDepth: 0, maxGroupChildren: 3 },
+  standard: { plan: "standard", maxSymbols: 10, maxConditions: 12, maxGroups: 6, maxDepth: 1, maxGroupChildren: 8 },
+  pro: { plan: "pro", maxSymbols: 15, maxConditions: 32, maxGroups: 32, maxDepth: 2, maxGroupChildren: 8 },
 };
 
 export function backtestLimits(plan?: string | null): BacktestLimits {
@@ -47,7 +47,7 @@ export function canAdd(usage: ConditionUsage, limits: BacktestLimits, group = fa
 
 export function upgradeHint(limits: BacktestLimits): string {
   return limits.plan === "free" ? "Больше пар, условий и вложенные группы — в Standard и Pro."
-    : limits.plan === "standard" ? "До 10 пар и расширенный конструктор — в Pro."
+    : limits.plan === "standard" ? "До 15 пар и расширенный конструктор — в Pro."
     : "Технический лимит: 32 элемента суммарно, до 8 элементов в одной группе.";
 }
 

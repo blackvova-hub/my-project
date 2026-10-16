@@ -36,6 +36,11 @@ func (h *History) Load(ctx context.Context, market, symbol, tf string, from, to 
 		}
 		return aggregateFrom(base, tf, from, to, 60000)
 	}
+	if tf == "1m" {
+		// The legacy series-retention registry only accepts larger timeframes.
+		// Raw minutes, like minute-archive mode, do not register a 5m series.
+		return h.load(ctx, market, symbol, tf, from, to, progress, false)
+	}
 	if tf != "5m" {
 		if bt.Interval(tf) == 0 {
 			return nil, fmt.Errorf("Некорректный таймфрейм")
@@ -54,6 +59,74 @@ func (h *History) Load(ctx context.Context, market, symbol, tf string, from, to 
 		return Aggregate(base, tf, from, to)
 	}
 	return h.load(ctx, market, symbol, tf, from, to, progress, true)
+}
+
+// LoadAvailable accepts an unavailable prefix, such as time before listing, but
+// requires every source candle from the first actual row through to. Incomplete
+// leading timeframe buckets are discarded rather than presented as full bars.
+// Load remains strict for callers that require the whole requested range.
+func (h *History) LoadAvailable(ctx context.Context, market, symbol, tf string, from, to int64, progress func(int)) ([]bt.Candle, error) {
+	step := bt.Interval(tf).Milliseconds()
+	if step == 0 || from < 0 || to <= from || from%step != 0 || to%step != 0 {
+		return nil, fmt.Errorf("%s: некорректный диапазон истории", symbol)
+	}
+	if h.Storage.MinuteArchive || tf != "5m" {
+		cached, err := h.Storage.Read(ctx, market, symbol, tf, from, to)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", symbol, err)
+		}
+		if engine.ValidateCandles(cached, from, to, step) == nil {
+			return cached, nil
+		}
+	}
+	baseTF, baseStep, touch := "5m", int64(300000), true
+	if h.Storage.MinuteArchive {
+		baseTF, baseStep, touch = "1m", MinuteStep, false
+	} else if tf == "1m" {
+		baseTF, baseStep, touch = "1m", MinuteStep, false
+	}
+	base, err := h.fill(ctx, market, symbol, baseTF, from, to, progress, touch, false)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", symbol, err)
+	}
+	return availableTail(base, symbol, tf, from, to, baseStep)
+}
+
+func availableTail(base []bt.Candle, symbol, tf string, from, to, baseStep int64) ([]bt.Candle, error) {
+	if len(base) == 0 {
+		return []bt.Candle{}, nil
+	}
+	step := bt.Interval(tf).Milliseconds()
+	first := base[0].Time
+	if first < from || first >= to || first%baseStep != 0 {
+		return nil, fmt.Errorf("%s: некорректная граница истории %s UTC", symbol, time.UnixMilli(first).UTC().Format("02.01.2006 15:04"))
+	}
+	expected := first
+	for _, candle := range base {
+		if candle.Time != expected {
+			return nil, missingCandle(symbol, expected)
+		}
+		if err := engine.ValidateCandles([]bt.Candle{candle}, expected, expected+baseStep, baseStep); err != nil {
+			return nil, fmt.Errorf("%s: %s UTC: %w", symbol, time.UnixMilli(expected).UTC().Format("02.01.2006 15:04"), err)
+		}
+		expected += baseStep
+	}
+	if expected != to {
+		return nil, missingCandle(symbol, expected)
+	}
+	start := first
+	if remainder := start % step; remainder != 0 {
+		start += step - remainder
+	}
+	if start >= to {
+		return []bt.Candle{}, nil
+	}
+	base = base[int((start-first)/baseStep):]
+	return aggregateFrom(base, tf, start, to, baseStep)
+}
+
+func missingCandle(symbol string, ts int64) error {
+	return fmt.Errorf("%s: пропуск свечи %s UTC. Пропуски после начала истории не допускаются", symbol, time.UnixMilli(ts).UTC().Format("02.01.2006 15:04"))
 }
 
 func (h *History) load(ctx context.Context, market, symbol, tf string, from, to int64, progress func(int), touch bool) ([]bt.Candle, error) {
