@@ -87,7 +87,7 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 1500));
     }
     expect(result.status, `${label}: ${result.error}`).toBe("completed");
-    expect(result.result.engineVersion).toBe("3.0.0");
+    expect(result.result.engineVersion).toBe("3.1.0");
     expect(result.result.signals[0].evaluatedBars).toBeGreaterThan(0);
     jobs.push({
       id: activeId,

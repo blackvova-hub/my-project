@@ -11,7 +11,10 @@ import (
 	"time"
 )
 
-const EngineVersion = "3.0.0"
+const EngineVersion = "3.1.0"
+
+// ReentryCooldown applies independently to each instrument after every entry and exit.
+const ReentryCooldown = 30 * time.Minute
 
 type Operand struct {
 	Kind   string  `json:"kind"`

@@ -18,11 +18,12 @@ type position struct {
 	time  int64
 }
 type instrument struct {
-	symbol   string
-	candles  []bt.Candle
-	cache    *seriesCache
-	position *position
-	offset   int // Index of the first real candle on the shared request timeline.
+	symbol      string
+	candles     []bt.Candle
+	cache       *seriesCache
+	position    *position
+	nextEntryAt int64
+	offset      int // Index of the first real candle on the shared request timeline.
 }
 
 func (v *instrument) barAt(i int) (bt.Candle, int, bool) {
@@ -140,6 +141,7 @@ func Run(ctx context.Context, r bt.Request, data map[string][]bt.Candle, progres
 		cash += p.qty*p.entry + sign*p.qty*(fill-p.entry) - exitFee
 		result.Trades = append(result.Trades, bt.Trade{Symbol: v.symbol, Direction: s.Direction, EntryTime: p.time, ExitTime: ts, EntryPrice: p.entry, ExitPrice: fill, Quantity: p.qty, Fees: p.fee + exitFee, PnL: pnl, PnLPct: 100 * pnl / (p.qty * p.entry), Reason: reason})
 		v.position = nil
+		v.nextEntryAt = max(v.nextEntryAt, ts+bt.ReentryCooldown.Milliseconds())
 	}
 	for i := 0; i < count; i++ {
 		if i%128 == 0 {
@@ -217,10 +219,14 @@ func Run(ctx context.Context, r bt.Request, data map[string][]bt.Candle, progres
 				if !available {
 					continue
 				}
+				if bar.Time < v.nextEntryAt {
+					continue
+				}
 				fill := bar.Open * (1 + sign*slip)
 				fee := notional * feeRate
 				cash -= notional + fee
 				v.position = &position{entry: fill, qty: notional / fill, fee: fee, time: bar.Time}
+				v.nextEntryAt = bar.Time + bt.ReentryCooldown.Milliseconds()
 			}
 		}
 		for k := range instruments {
